@@ -1,0 +1,37 @@
+====================================
+ZJOBCONCIERGE SETUP INSTRUCTIONS
+====================================
+
+WHERE TO PUT EACH FILE:
+-----------------------
+
+IN THE MAIN FOLDER (Zconcierge web page):
+  - vite.config.js
+  - index.html  
+  - package.json (REPLACE your existing one)
+
+INSIDE THE src FOLDER:
+  - main.jsx
+  - App.jsx
+
+
+AFTER PLACING THE FILES:
+------------------------
+
+1. Open Command Prompt
+
+2. Navigate to your folder:
+   cd C:\Users\merym\OneDrive\Desktop\Zconcierge web page
+
+3. Delete old packages and reinstall:
+   rmdir /s /q node_modules
+   npm install
+
+4. Start the app:
+   npm run dev
+
+5. Open your browser to:
+   http://localhost:5173
+
+
+THAT'S IT! Your app should now be running.
