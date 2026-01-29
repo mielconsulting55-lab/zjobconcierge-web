@@ -1,12 +1,21 @@
-// ZJobConcierge - Checkout Flow with API Integration
-// FIXED: Reads plan from URL parameter correctly
-// Example: /checkout?plan=basic will show Basic plan
+/**
+ * ZJobConcierge - Checkout Flow with API Integration
+ * 
+ * This is an UPDATED version that connects to the backend API.
+ * Replace your existing JobConciergeCheckoutFlow.jsx with this file.
+ * 
+ * Changes from original:
+ * - Real API calls for user registration
+ * - Error handling with user feedback
+ * - Loading states during API calls
+ * - Session management after successful signup
+ */
 
 import { useState, useEffect } from "react"
 import { processCheckout, setUserSession, checkHealth } from "../api"
 
 export default function JobConciergeCheckoutFlow() {
-    // FIXED: Get plan from URL (e.g., /checkout?plan=basic)
+    // Get plan from URL params
     const urlParams = new URLSearchParams(window.location.search)
     const selectedPlan = urlParams.get('plan') || 'pro'
     
@@ -17,7 +26,7 @@ export default function JobConciergeCheckoutFlow() {
     const [signupCount, setSignupCount] = useState(147)
     const [showConfetti, setShowConfetti] = useState(false)
     const [apiError, setApiError] = useState(null)
-    const [apiConnected, setApiConnected] = useState(null)
+    const [apiConnected, setApiConnected] = useState(null) // null = checking, true = connected, false = error
 
     // Form state
     const [formData, setFormData] = useState({
@@ -29,7 +38,7 @@ export default function JobConciergeCheckoutFlow() {
         zip: "",
     })
 
-    // Profile state
+    // Profile state for onboarding
     const [profile, setProfile] = useState({
         currentTitle: "",
         careerStage: "",
@@ -63,7 +72,6 @@ export default function JobConciergeCheckoutFlow() {
     const mintBorder = "rgba(60, 255, 208, 0.3)"
     const lavender = "#A78BFA"
     const lavenderSoft = "rgba(167, 139, 250, 0.1)"
-    const lavenderBorder = "rgba(167, 139, 250, 0.3)"
     const gold = "#FFD93D"
     const goldSoft = "rgba(255, 217, 61, 0.1)"
     const coral = "#FF6B6B"
@@ -103,7 +111,6 @@ export default function JobConciergeCheckoutFlow() {
     // Navigation
     const goToHome = () => (window.location.href = "/")
     const goToPricing = () => (window.location.href = "/pricing")
-    const goToGetStarted = () => (window.location.href = "/get-started")
     const goToDashboard = () => (window.location.href = "/dashboard")
 
     // Signup counter
@@ -187,6 +194,7 @@ export default function JobConciergeCheckoutFlow() {
                     billingCycle,
                 })
                 
+                // Store session
                 setUserSession({
                     email: formData.email,
                     userId: result.userId,
@@ -202,6 +210,7 @@ export default function JobConciergeCheckoutFlow() {
                 setApiError(error.message || "Failed to create account. Please try again.")
             }
         } else {
+            // Move to checkout for paid plans
             setCurrentStep("checkout")
         }
     }
@@ -213,6 +222,7 @@ export default function JobConciergeCheckoutFlow() {
         setApiError(null)
 
         try {
+            // Step 1: Create user account
             const result = await processCheckout({
                 formData,
                 profile,
@@ -220,12 +230,17 @@ export default function JobConciergeCheckoutFlow() {
                 billingCycle,
             })
 
+            // Store session
             setUserSession({
                 email: formData.email,
                 userId: result.userId,
                 plan: selectedPlan,
                 name: formData.firstName,
             })
+
+            // TODO: Step 2 - Process payment with Stripe
+            // For now, we're just creating the account
+            // In production, integrate Stripe Checkout here
 
             setIsProcessing(false)
             setCurrentStep("success")
@@ -265,7 +280,6 @@ export default function JobConciergeCheckoutFlow() {
                     fontSize: 15,
                     color: text100,
                     outline: "none",
-                    boxSizing: "border-box",
                 }}
             />
             {error && <div style={{ fontSize: 12, color: coral, marginTop: 4 }}>{error}</div>}
@@ -314,7 +328,7 @@ export default function JobConciergeCheckoutFlow() {
                 Let's get started
             </h2>
             <p style={{ fontSize: 14, color: text40, marginBottom: 32, textAlign: "center" }}>
-                Create your {activePlan.name} account
+                Create your account to start receiving tailored job packets
             </p>
 
             <ApiStatus />
@@ -343,7 +357,7 @@ export default function JobConciergeCheckoutFlow() {
                 style={{
                     width: "100%",
                     padding: "16px",
-                    background: isProcessing ? slate : `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`,
+                    background: isProcessing ? slate : `linear-gradient(135deg, ${mint}, #2DD4BF)`,
                     border: "none",
                     borderRadius: 12,
                     fontSize: 16,
@@ -351,7 +365,7 @@ export default function JobConciergeCheckoutFlow() {
                     color: isProcessing ? text40 : void_,
                     cursor: isProcessing ? "wait" : "pointer",
                     marginTop: 16,
-                    boxShadow: isProcessing ? "none" : `0 0 30px ${activePlan.color}50`,
+                    boxShadow: isProcessing ? "none" : `0 0 30px ${mintGlow}`,
                 }}
             >
                 {isProcessing ? "Creating account..." : selectedPlan === "free" ? "Start Free Trial" : "Continue to Payment"}
@@ -373,24 +387,21 @@ export default function JobConciergeCheckoutFlow() {
             {/* Plan Summary */}
             <div style={{
                 padding: 20,
-                background: `${activePlan.color}15`,
-                border: `1px solid ${activePlan.color}50`,
+                background: mintSoft,
+                border: `1px solid ${mintBorder}`,
                 borderRadius: 12,
                 marginBottom: 24,
             }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                        <span style={{ fontSize: 24 }}>{activePlan.icon}</span>
-                        <span style={{ marginLeft: 10, fontWeight: 600, color: text100, fontSize: 18 }}>{activePlan.name}</span>
+                        <span style={{ fontSize: 20 }}>{activePlan.icon}</span>
+                        <span style={{ marginLeft: 10, fontWeight: 600, color: text100 }}>{activePlan.name}</span>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: activePlan.color }}>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: mint }}>
                             ${currentPrice}<span style={{ fontSize: 14, color: text40 }}>/mo</span>
                         </div>
                     </div>
-                </div>
-                <div style={{ marginTop: 12, fontSize: 13, color: text60 }}>
-                    {activePlan.jobsPerDay} jobs/day • {activePlan.jobsPerMonth} packets/month
                 </div>
             </div>
 
@@ -439,7 +450,7 @@ export default function JobConciergeCheckoutFlow() {
                 style={{
                     width: "100%",
                     padding: "16px",
-                    background: isProcessing ? slate : `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`,
+                    background: isProcessing ? slate : `linear-gradient(135deg, ${mint}, #2DD4BF)`,
                     border: "none",
                     borderRadius: 12,
                     fontSize: 16,
@@ -447,7 +458,7 @@ export default function JobConciergeCheckoutFlow() {
                     color: isProcessing ? text40 : void_,
                     cursor: isProcessing ? "wait" : "pointer",
                     marginTop: 16,
-                    boxShadow: isProcessing ? "none" : `0 0 30px ${activePlan.color}50`,
+                    boxShadow: isProcessing ? "none" : `0 0 30px ${mintGlow}`,
                 }}
             >
                 {isProcessing ? "Processing..." : `Pay $${currentPrice}/month`}
@@ -469,23 +480,23 @@ export default function JobConciergeCheckoutFlow() {
                 Welcome to Job Concierge!
             </h2>
             <p style={{ fontSize: 16, color: text60, marginBottom: 32 }}>
-                Your {activePlan.name} account is ready. Let's set up your profile so we can find the perfect jobs for you.
+                Your account is ready. Let's set up your profile so we can find the perfect jobs for you.
             </p>
 
             <div style={{
                 padding: 20,
-                background: `${activePlan.color}15`,
-                border: `1px solid ${activePlan.color}50`,
+                background: mintSoft,
+                border: `1px solid ${mintBorder}`,
                 borderRadius: 16,
                 marginBottom: 32,
             }}>
                 <div style={{ display: "flex", justifyContent: "center", gap: 40 }}>
                     <div>
-                        <div style={{ fontSize: 32, fontWeight: 700, color: activePlan.color }}>{activePlan.jobsPerDay}</div>
+                        <div style={{ fontSize: 32, fontWeight: 700, color: mint }}>{activePlan.jobsPerDay}</div>
                         <div style={{ fontSize: 12, color: text40 }}>jobs/day</div>
                     </div>
                     <div>
-                        <div style={{ fontSize: 32, fontWeight: 700, color: activePlan.color }}>{activePlan.jobsPerMonth}</div>
+                        <div style={{ fontSize: 32, fontWeight: 700, color: mint }}>{activePlan.jobsPerMonth}</div>
                         <div style={{ fontSize: 12, color: text40 }}>packets/month</div>
                     </div>
                 </div>
@@ -495,14 +506,14 @@ export default function JobConciergeCheckoutFlow() {
                 onClick={() => setCurrentStep("onboarding")}
                 style={{
                     padding: "16px 48px",
-                    background: `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`,
+                    background: `linear-gradient(135deg, ${mint}, #2DD4BF)`,
                     border: "none",
                     borderRadius: 12,
                     fontSize: 16,
                     fontWeight: 700,
                     color: void_,
                     cursor: "pointer",
-                    boxShadow: `0 0 30px ${activePlan.color}50`,
+                    boxShadow: `0 0 30px ${mintGlow}`,
                 }}
             >
                 Set Up My Profile →
@@ -542,7 +553,7 @@ export default function JobConciergeCheckoutFlow() {
             <div style={{
                 position: "fixed",
                 inset: 0,
-                background: `radial-gradient(ellipse at 20% 20%, ${activePlan.color}10 0%, transparent 50%),
+                background: `radial-gradient(ellipse at 20% 20%, rgba(60, 255, 208, 0.06) 0%, transparent 50%),
                            radial-gradient(ellipse at 80% 80%, rgba(167, 139, 250, 0.04) 0%, transparent 50%)`,
                 pointerEvents: "none",
             }} />
@@ -573,7 +584,7 @@ export default function JobConciergeCheckoutFlow() {
                     <span style={{ fontSize: 18, fontWeight: 600, color: text100 }}>JobConcierge</span>
                 </div>
 
-                <button onClick={goToGetStarted} style={{
+                <button onClick={goToPricing} style={{
                     padding: "8px 16px",
                     background: "transparent",
                     border: `1px solid ${text20}`,
@@ -605,7 +616,7 @@ export default function JobConciergeCheckoutFlow() {
                         <button onClick={handleOnboardingNext} style={{
                             marginTop: 20,
                             padding: "16px 32px",
-                            background: activePlan.color,
+                            background: mint,
                             border: "none",
                             borderRadius: 12,
                             fontWeight: 600,

@@ -1,6 +1,6 @@
 // ZJobConcierge - Unified Get Started Flow
 // Entry point for /get-started → Plan Selection → Checkout Flow
-// Copy this entire code into a new Framer Code Component
+// FIXED: Plan selection now works correctly
 
 import { useState, useEffect } from "react"
 
@@ -87,7 +87,7 @@ export default function JobConciergeUnifiedFlow() {
         },
     ]
 
-    // Navigation
+    // Navigation - FIXED: goToCheckout passes the plan correctly
     const goToHome = () => (window.location.href = "/")
     const goToPricing = () => (window.location.href = "/pricing")
     const goToCheckout = (plan) => (window.location.href = `/checkout?plan=${plan}`)
@@ -107,6 +107,7 @@ export default function JobConciergeUnifiedFlow() {
         return billingCycle === "annual" ? plan.annualPrice : plan.price
     }
 
+    // FIXED: handleContinue uses the selected plan
     const handleContinue = () => {
         setIsSubmitting(true)
         setTimeout(() => {
