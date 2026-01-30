@@ -1,6 +1,6 @@
 // ZJobConcierge - Checkout Flow with API Integration
-// FIXED: Reads plan from URL parameter correctly
-// Example: /checkout?plan=basic will show Basic plan
+// FIXED: Reads plan from URL parameter
+// FIXED: Connects to real backend API
 
 import { useState, useEffect } from "react"
 import { processCheckout, setUserSession, checkHealth } from "../api"
@@ -9,7 +9,7 @@ export default function JobConciergeCheckoutFlow() {
     // FIXED: Get plan from URL (e.g., /checkout?plan=basic)
     const urlParams = new URLSearchParams(window.location.search)
     const selectedPlan = urlParams.get('plan') || 'pro'
-    
+
     const [currentStep, setCurrentStep] = useState("info")
     const [onboardingStep, setOnboardingStep] = useState(1)
     const [billingCycle, setBillingCycle] = useState("monthly")
@@ -17,7 +17,6 @@ export default function JobConciergeCheckoutFlow() {
     const [signupCount, setSignupCount] = useState(147)
     const [showConfetti, setShowConfetti] = useState(false)
     const [apiError, setApiError] = useState(null)
-    const [apiConnected, setApiConnected] = useState(null)
 
     // Form state
     const [formData, setFormData] = useState({
@@ -33,43 +32,21 @@ export default function JobConciergeCheckoutFlow() {
     const [profile, setProfile] = useState({
         currentTitle: "",
         careerStage: "",
-        superpower: "",
-        energizers: [],
-        drainers: "",
-        workStyle: "",
         dreamTitle: "",
-        dreamCompanies: [],
-        salaryMin: 100000,
-        urgency: "",
-        hiddenStrength: "",
-        resumeFile: null,
-        linkedIn: "",
-        indeed: "",
-        glassdoor: "",
+        workStyle: "",
     })
 
     const [errors, setErrors] = useState({})
 
     // Colors
     const void_ = "#04040A"
-    const night = "#08080E"
     const charcoal = "#0E0E14"
     const slate = "#151519"
-    const mist = "#1C1C22"
-
     const mint = "#3CFFD0"
-    const mintGlow = "rgba(60, 255, 208, 0.5)"
-    const mintSoft = "rgba(60, 255, 208, 0.1)"
-    const mintBorder = "rgba(60, 255, 208, 0.3)"
     const lavender = "#A78BFA"
-    const lavenderSoft = "rgba(167, 139, 250, 0.1)"
-    const lavenderBorder = "rgba(167, 139, 250, 0.3)"
     const gold = "#FFD93D"
-    const goldSoft = "rgba(255, 217, 61, 0.1)"
     const coral = "#FF6B6B"
-
     const text100 = "#FFFFFF"
-    const text80 = "rgba(255, 255, 255, 0.85)"
     const text60 = "rgba(255, 255, 255, 0.6)"
     const text40 = "rgba(255, 255, 255, 0.4)"
     const text20 = "rgba(255, 255, 255, 0.12)"
@@ -87,26 +64,12 @@ export default function JobConciergeCheckoutFlow() {
     const activePlan = plans[selectedPlan] || plans.pro
     const currentPrice = billingCycle === "annual" ? activePlan.annualPrice : activePlan.price
 
-    // Check API connection on mount
-    useEffect(() => {
-        async function checkAPI() {
-            try {
-                const health = await checkHealth()
-                setApiConnected(health.healthy)
-            } catch (e) {
-                setApiConnected(false)
-            }
-        }
-        checkAPI()
-    }, [])
-
     // Navigation
     const goToHome = () => (window.location.href = "/")
-    const goToPricing = () => (window.location.href = "/pricing")
     const goToGetStarted = () => (window.location.href = "/get-started")
     const goToDashboard = () => (window.location.href = "/dashboard")
 
-    // Signup counter
+    // Effects
     useEffect(() => {
         const interval = setInterval(() => {
             if (Math.random() > 0.7) setSignupCount((prev) => prev + 1)
@@ -114,7 +77,6 @@ export default function JobConciergeCheckoutFlow() {
         return () => clearInterval(interval)
     }, [])
 
-    // Confetti effect
     useEffect(() => {
         if (showConfetti) {
             const timer = setTimeout(() => setShowConfetti(false), 3000)
@@ -129,20 +91,14 @@ export default function JobConciergeCheckoutFlow() {
         if (apiError) setApiError(null)
     }
 
-    const handleProfileChange = (field, value) => {
-        setProfile((prev) => ({ ...prev, [field]: value }))
-    }
-
     // Card formatting
     const formatCardNumber = (value) => {
         const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "")
-        const matches = v.match(/\d{4,16}/g)
-        const match = (matches && matches[0]) || ""
         const parts = []
-        for (let i = 0, len = match.length; i < len; i += 4) {
-            parts.push(match.substring(i, i + 4))
+        for (let i = 0; i < v.length && i < 16; i += 4) {
+            parts.push(v.substring(i, i + 4))
         }
-        return parts.length ? parts.join(" ") : value
+        return parts.join(" ")
     }
 
     const formatExpiry = (value) => {
@@ -170,36 +126,22 @@ export default function JobConciergeCheckoutFlow() {
         return Object.keys(newErrors).length === 0
     }
 
-    // Step handlers with REAL API CALLS
+    // API Handlers
     const handleInfoSubmit = async () => {
         if (!validateInfo()) return
 
-        // For free plan, create account immediately
         if (selectedPlan === "free") {
             setIsProcessing(true)
             setApiError(null)
-            
             try {
-                const result = await processCheckout({
-                    formData,
-                    profile,
-                    selectedPlan,
-                    billingCycle,
-                })
-                
-                setUserSession({
-                    email: formData.email,
-                    userId: result.userId,
-                    plan: selectedPlan,
-                    name: formData.firstName,
-                })
-                
+                const result = await processCheckout({ formData, profile, selectedPlan, billingCycle })
+                setUserSession({ email: formData.email, userId: result.userId, plan: selectedPlan, name: formData.firstName })
                 setIsProcessing(false)
                 setCurrentStep("success")
                 setShowConfetti(true)
             } catch (error) {
                 setIsProcessing(false)
-                setApiError(error.message || "Failed to create account. Please try again.")
+                setApiError(error.message || "Failed to create account")
             }
         } else {
             setCurrentStep("checkout")
@@ -211,45 +153,27 @@ export default function JobConciergeCheckoutFlow() {
 
         setIsProcessing(true)
         setApiError(null)
-
         try {
-            const result = await processCheckout({
-                formData,
-                profile,
-                selectedPlan,
-                billingCycle,
-            })
-
-            setUserSession({
-                email: formData.email,
-                userId: result.userId,
-                plan: selectedPlan,
-                name: formData.firstName,
-            })
-
+            const result = await processCheckout({ formData, profile, selectedPlan, billingCycle })
+            setUserSession({ email: formData.email, userId: result.userId, plan: selectedPlan, name: formData.firstName })
             setIsProcessing(false)
             setCurrentStep("success")
             setShowConfetti(true)
         } catch (error) {
             setIsProcessing(false)
-            setApiError(error.message || "Payment failed. Please try again.")
+            setApiError(error.message || "Failed to create account")
         }
     }
 
     const handleOnboardingNext = () => {
-        if (onboardingStep < 6) {
-            setOnboardingStep(onboardingStep + 1)
-        } else {
-            goToDashboard()
-        }
+        if (onboardingStep < 6) setOnboardingStep(onboardingStep + 1)
+        else goToDashboard()
     }
 
-    // Input component
+    // Components
     const Input = ({ label, value, onChange, type = "text", placeholder, error, maxLength }) => (
         <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 13, color: text60, marginBottom: 6, fontWeight: 500 }}>
-                {label}
-            </label>
+            <label style={{ display: "block", fontSize: 13, color: text60, marginBottom: 6, fontWeight: 500 }}>{label}</label>
             <input
                 type={type}
                 value={value}
@@ -258,7 +182,7 @@ export default function JobConciergeCheckoutFlow() {
                 maxLength={maxLength}
                 style={{
                     width: "100%",
-                    padding: "14px 16px",
+                    padding: "14px",
                     background: charcoal,
                     border: `1px solid ${error ? coral : text10}`,
                     borderRadius: 10,
@@ -268,381 +192,133 @@ export default function JobConciergeCheckoutFlow() {
                     boxSizing: "border-box",
                 }}
             />
-            {error && <div style={{ fontSize: 12, color: coral, marginTop: 4 }}>{error}</div>}
+            {error && <span style={{ fontSize: 12, color: coral, marginTop: 4 }}>{error}</span>}
         </div>
     )
 
-    // Error banner
     const ErrorBanner = ({ message }) => (
-        <div style={{
-            padding: "12px 16px",
-            background: "rgba(255, 107, 107, 0.1)",
-            border: `1px solid ${coral}`,
-            borderRadius: 10,
-            marginBottom: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-        }}>
+        <div style={{ padding: "12px 16px", background: "rgba(255, 107, 107, 0.1)", border: `1px solid ${coral}`, borderRadius: 10, marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
             <span>⚠️</span>
             <span style={{ fontSize: 14, color: coral }}>{message}</span>
         </div>
     )
 
-    // API Status indicator
-    const ApiStatus = () => (
-        apiConnected === false && (
-            <div style={{
-                padding: "8px 12px",
-                background: "rgba(255, 217, 61, 0.1)",
-                border: `1px solid ${gold}`,
-                borderRadius: 8,
-                marginBottom: 16,
-                fontSize: 12,
-                color: gold,
-                textAlign: "center",
-            }}>
-                ⚠️ Backend connection unavailable. Demo mode active.
+    const PlanSummary = () => (
+        <div style={{ padding: 20, background: `${activePlan.color}15`, border: `1px solid ${activePlan.color}40`, borderRadius: 16, marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 48, height: 48, background: `${activePlan.color}25`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{activePlan.icon}</div>
+                    <div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: text100 }}>{activePlan.name}</div>
+                        <div style={{ fontSize: 13, color: text40 }}>{activePlan.jobsPerDay} jobs/day • {activePlan.jobsPerMonth} packets/mo</div>
+                    </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: activePlan.color }}>${currentPrice}<span style={{ fontSize: 14, color: text40 }}>{selectedPlan === "free" ? "" : "/mo"}</span></div>
+                </div>
             </div>
-        )
+        </div>
     )
 
     // Info Step
     const InfoStep = () => (
-        <div style={{ maxWidth: 400, margin: "0 auto" }}>
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: text100, marginBottom: 8, textAlign: "center" }}>
-                Let's get started
-            </h2>
-            <p style={{ fontSize: 14, color: text40, marginBottom: 32, textAlign: "center" }}>
-                Create your {activePlan.name} account
-            </p>
-
-            <ApiStatus />
+        <div style={{ maxWidth: 420, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+                <h1 style={{ fontSize: 28, fontWeight: 700, color: text100, marginBottom: 8 }}>Create your account</h1>
+                <p style={{ fontSize: 15, color: text40 }}>Start your {activePlan.name} journey today</p>
+            </div>
+            <PlanSummary />
             {apiError && <ErrorBanner message={apiError} />}
-
-            <Input
-                label="First Name"
-                value={formData.firstName}
-                onChange={(v) => handleInputChange("firstName", v)}
-                placeholder="What should we call you?"
-                error={errors.firstName}
-            />
-
-            <Input
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={(v) => handleInputChange("email", v)}
-                placeholder="your@email.com"
-                error={errors.email}
-            />
-
-            <button
-                onClick={handleInfoSubmit}
-                disabled={isProcessing}
-                style={{
-                    width: "100%",
-                    padding: "16px",
-                    background: isProcessing ? slate : `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`,
-                    border: "none",
-                    borderRadius: 12,
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: isProcessing ? text40 : void_,
-                    cursor: isProcessing ? "wait" : "pointer",
-                    marginTop: 16,
-                    boxShadow: isProcessing ? "none" : `0 0 30px ${activePlan.color}50`,
-                }}
-            >
-                {isProcessing ? "Creating account..." : selectedPlan === "free" ? "Start Free Trial" : "Continue to Payment"}
+            <Input label="First Name" value={formData.firstName} onChange={(v) => handleInputChange("firstName", v)} placeholder="What should we call you?" error={errors.firstName} />
+            <Input label="Email" type="email" value={formData.email} onChange={(v) => handleInputChange("email", v)} placeholder="you@email.com" error={errors.email} />
+            <button onClick={handleInfoSubmit} disabled={isProcessing} style={{ width: "100%", padding: "16px", background: isProcessing ? slate : `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`, border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700, color: isProcessing ? text40 : void_, cursor: isProcessing ? "wait" : "pointer", boxShadow: isProcessing ? "none" : `0 0 30px ${activePlan.color}50`, marginTop: 8 }}>
+                {isProcessing ? "Creating account..." : selectedPlan === "free" ? "Start Free Trial →" : "Continue to Payment →"}
             </button>
-
-            <p style={{ fontSize: 12, color: text40, textAlign: "center", marginTop: 16 }}>
-                By continuing, you agree to our Terms of Service and Privacy Policy
-            </p>
+            <p style={{ fontSize: 12, color: text40, textAlign: "center", marginTop: 20 }}>By continuing, you agree to our Terms of Service</p>
         </div>
     )
 
     // Checkout Step
     const CheckoutStep = () => (
-        <div style={{ maxWidth: 400, margin: "0 auto" }}>
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: text100, marginBottom: 8, textAlign: "center" }}>
-                Complete your purchase
-            </h2>
-
-            {/* Plan Summary */}
-            <div style={{
-                padding: 20,
-                background: `${activePlan.color}15`,
-                border: `1px solid ${activePlan.color}50`,
-                borderRadius: 12,
-                marginBottom: 24,
-            }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                        <span style={{ fontSize: 24 }}>{activePlan.icon}</span>
-                        <span style={{ marginLeft: 10, fontWeight: 600, color: text100, fontSize: 18 }}>{activePlan.name}</span>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: activePlan.color }}>
-                            ${currentPrice}<span style={{ fontSize: 14, color: text40 }}>/mo</span>
-                        </div>
-                    </div>
-                </div>
-                <div style={{ marginTop: 12, fontSize: 13, color: text60 }}>
-                    {activePlan.jobsPerDay} jobs/day • {activePlan.jobsPerMonth} packets/month
-                </div>
+        <div style={{ maxWidth: 420, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+                <h1 style={{ fontSize: 28, fontWeight: 700, color: text100, marginBottom: 8 }}>Complete your purchase</h1>
+                <p style={{ fontSize: 15, color: text40 }}>Secure payment</p>
             </div>
-
+            <PlanSummary />
             {apiError && <ErrorBanner message={apiError} />}
-
-            {/* Card Details */}
-            <Input
-                label="Card Number"
-                value={formData.cardNumber}
-                onChange={(v) => handleInputChange("cardNumber", formatCardNumber(v))}
-                placeholder="1234 5678 9012 3456"
-                error={errors.cardNumber}
-                maxLength={19}
-            />
-
+            <Input label="Card Number" value={formData.cardNumber} onChange={(v) => handleInputChange("cardNumber", formatCardNumber(v))} placeholder="1234 5678 9012 3456" error={errors.cardNumber} maxLength={19} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                <Input
-                    label="Expiry"
-                    value={formData.expiry}
-                    onChange={(v) => handleInputChange("expiry", formatExpiry(v))}
-                    placeholder="MM/YY"
-                    error={errors.expiry}
-                    maxLength={5}
-                />
-                <Input
-                    label="CVC"
-                    value={formData.cvc}
-                    onChange={(v) => handleInputChange("cvc", v.replace(/\D/g, ""))}
-                    placeholder="123"
-                    error={errors.cvc}
-                    maxLength={4}
-                />
-                <Input
-                    label="ZIP"
-                    value={formData.zip}
-                    onChange={(v) => handleInputChange("zip", v.replace(/\D/g, ""))}
-                    placeholder="12345"
-                    error={errors.zip}
-                    maxLength={5}
-                />
+                <Input label="Expiry" value={formData.expiry} onChange={(v) => handleInputChange("expiry", formatExpiry(v))} placeholder="MM/YY" error={errors.expiry} maxLength={5} />
+                <Input label="CVC" value={formData.cvc} onChange={(v) => handleInputChange("cvc", v.replace(/\D/g, ""))} placeholder="123" error={errors.cvc} maxLength={4} />
+                <Input label="ZIP" value={formData.zip} onChange={(v) => handleInputChange("zip", v.replace(/\D/g, ""))} placeholder="12345" error={errors.zip} maxLength={5} />
             </div>
-
-            <button
-                onClick={handleCheckoutSubmit}
-                disabled={isProcessing}
-                style={{
-                    width: "100%",
-                    padding: "16px",
-                    background: isProcessing ? slate : `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`,
-                    border: "none",
-                    borderRadius: 12,
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: isProcessing ? text40 : void_,
-                    cursor: isProcessing ? "wait" : "pointer",
-                    marginTop: 16,
-                    boxShadow: isProcessing ? "none" : `0 0 30px ${activePlan.color}50`,
-                }}
-            >
+            <button onClick={handleCheckoutSubmit} disabled={isProcessing} style={{ width: "100%", padding: "16px", background: isProcessing ? slate : `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`, border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700, color: isProcessing ? text40 : void_, cursor: isProcessing ? "wait" : "pointer", boxShadow: isProcessing ? "none" : `0 0 30px ${activePlan.color}50`, marginTop: 8 }}>
                 {isProcessing ? "Processing..." : `Pay $${currentPrice}/month`}
             </button>
-
-            <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 16 }}>
-                {["🔒 Secure", "💳 Encrypted", "↩️ Cancel anytime"].map((item, i) => (
-                    <span key={i} style={{ fontSize: 11, color: text40 }}>{item}</span>
-                ))}
+            <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 20 }}>
+                {["🔒 Secure", "💳 Encrypted", "↩️ Cancel anytime"].map((item, i) => (<span key={i} style={{ fontSize: 12, color: text40 }}>{item}</span>))}
             </div>
         </div>
     )
 
     // Success Step
     const SuccessStep = () => (
-        <div style={{ textAlign: "center", maxWidth: 500, margin: "0 auto" }}>
-            <div style={{ fontSize: 64, marginBottom: 24 }}>🎉</div>
-            <h2 style={{ fontSize: 32, fontWeight: 700, color: text100, marginBottom: 8 }}>
-                Welcome to Job Concierge!
-            </h2>
-            <p style={{ fontSize: 16, color: text60, marginBottom: 32 }}>
-                Your {activePlan.name} account is ready. Let's set up your profile so we can find the perfect jobs for you.
-            </p>
-
-            <div style={{
-                padding: 20,
-                background: `${activePlan.color}15`,
-                border: `1px solid ${activePlan.color}50`,
-                borderRadius: 16,
-                marginBottom: 32,
-            }}>
-                <div style={{ display: "flex", justifyContent: "center", gap: 40 }}>
-                    <div>
-                        <div style={{ fontSize: 32, fontWeight: 700, color: activePlan.color }}>{activePlan.jobsPerDay}</div>
-                        <div style={{ fontSize: 12, color: text40 }}>jobs/day</div>
-                    </div>
-                    <div>
-                        <div style={{ fontSize: 32, fontWeight: 700, color: activePlan.color }}>{activePlan.jobsPerMonth}</div>
-                        <div style={{ fontSize: 12, color: text40 }}>packets/month</div>
-                    </div>
+        <div style={{ maxWidth: 500, margin: "0 auto", textAlign: "center" }}>
+            <div style={{ width: 80, height: 80, background: `${activePlan.color}20`, borderRadius: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, margin: "0 auto 24px" }}>🎉</div>
+            <h1 style={{ fontSize: 32, fontWeight: 700, color: text100, marginBottom: 12 }}>Welcome to Job Concierge!</h1>
+            <p style={{ fontSize: 16, color: text60, marginBottom: 32, lineHeight: 1.6 }}>Your {activePlan.name} account is ready. You'll receive {activePlan.jobsPerDay} tailored job packets daily.</p>
+            <div style={{ padding: 24, background: `${activePlan.color}15`, border: `1px solid ${activePlan.color}30`, borderRadius: 16, marginBottom: 32 }}>
+                <div style={{ display: "flex", justifyContent: "center", gap: 48 }}>
+                    <div><div style={{ fontSize: 36, fontWeight: 700, color: activePlan.color }}>{activePlan.jobsPerDay}</div><div style={{ fontSize: 13, color: text40 }}>jobs/day</div></div>
+                    <div><div style={{ fontSize: 36, fontWeight: 700, color: activePlan.color }}>{activePlan.jobsPerMonth}</div><div style={{ fontSize: 13, color: text40 }}>packets/mo</div></div>
                 </div>
             </div>
-
-            <button
-                onClick={() => setCurrentStep("onboarding")}
-                style={{
-                    padding: "16px 48px",
-                    background: `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`,
-                    border: "none",
-                    borderRadius: 12,
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: void_,
-                    cursor: "pointer",
-                    boxShadow: `0 0 30px ${activePlan.color}50`,
-                }}
-            >
-                Set Up My Profile →
-            </button>
-
-            <button
-                onClick={goToDashboard}
-                style={{
-                    display: "block",
-                    margin: "16px auto 0",
-                    padding: "12px 24px",
-                    background: "transparent",
-                    border: `1px solid ${text20}`,
-                    borderRadius: 8,
-                    fontSize: 14,
-                    color: text40,
-                    cursor: "pointer",
-                }}
-            >
-                Skip for now
-            </button>
+            <button onClick={() => setCurrentStep("onboarding")} style={{ padding: "16px 48px", background: `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`, border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700, color: void_, cursor: "pointer", boxShadow: `0 0 30px ${activePlan.color}50` }}>Set Up My Profile →</button>
+            <button onClick={goToDashboard} style={{ display: "block", margin: "16px auto 0", padding: "12px 24px", background: "transparent", border: `1px solid ${text20}`, borderRadius: 8, fontSize: 14, color: text40, cursor: "pointer" }}>Skip for now</button>
         </div>
     )
 
-    // Main render
+    // Onboarding Step
+    const OnboardingStep = () => (
+        <div style={{ maxWidth: 500, margin: "0 auto", textAlign: "center" }}>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: text100, marginBottom: 12 }}>Tell us about yourself</h2>
+            <p style={{ fontSize: 14, color: text40, marginBottom: 32 }}>Step {onboardingStep} of 6</p>
+            <button onClick={handleOnboardingNext} style={{ padding: "16px 48px", background: `linear-gradient(135deg, ${activePlan.color}, ${activePlan.color}CC)`, border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700, color: void_, cursor: "pointer" }}>{onboardingStep < 6 ? "Next →" : "Go to Dashboard →"}</button>
+        </div>
+    )
+
+    // Confetti
+    const Confetti = () => (
+        <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1000, overflow: "hidden" }}>
+            {[...Array(50)].map((_, i) => (<div key={i} style={{ position: "absolute", left: `${Math.random() * 100}%`, top: -20, width: Math.random() * 10 + 5, height: Math.random() * 10 + 5, background: [mint, lavender, gold, coral][Math.floor(Math.random() * 4)], borderRadius: Math.random() > 0.5 ? "50%" : "2px", animation: `confetti ${2 + Math.random() * 2}s ease-out forwards`, animationDelay: `${Math.random() * 0.5}s` }} />))}
+        </div>
+    )
+
     return (
-        <div style={{
-            width: "100%",
-            minHeight: "100vh",
-            background: void_,
-            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-            color: text80,
-            display: "flex",
-            flexDirection: "column",
-        }}>
+        <div style={{ width: "100%", minHeight: "100vh", background: void_, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: "rgba(255, 255, 255, 0.85)" }}>
             {/* Background */}
-            <div style={{
-                position: "fixed",
-                inset: 0,
-                background: `radial-gradient(ellipse at 20% 20%, ${activePlan.color}10 0%, transparent 50%),
-                           radial-gradient(ellipse at 80% 80%, rgba(167, 139, 250, 0.04) 0%, transparent 50%)`,
-                pointerEvents: "none",
-            }} />
+            <div style={{ position: "fixed", inset: 0, background: `radial-gradient(ellipse at 20% 20%, ${activePlan.color}08 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(167, 139, 250, 0.04) 0%, transparent 50%)`, pointerEvents: "none" }} />
 
             {/* Header */}
-            <header style={{
-                position: "relative",
-                zIndex: 10,
-                padding: "16px 48px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderBottom: `1px solid ${text10}`,
-            }}>
+            <nav style={{ position: "relative", zIndex: 100, padding: "16px 48px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${text10}` }}>
                 <div onClick={goToHome} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                    <div style={{
-                        width: 40,
-                        height: 40,
-                        background: mint,
-                        borderRadius: 10,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 700,
-                        fontSize: 18,
-                        color: void_,
-                    }}>Z</div>
+                    <div style={{ width: 40, height: 40, background: mint, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 18, color: void_ }}>Z</div>
                     <span style={{ fontSize: 18, fontWeight: 600, color: text100 }}>JobConcierge</span>
                 </div>
+                <button onClick={goToGetStarted} style={{ padding: "8px 16px", background: "transparent", border: `1px solid ${text20}`, borderRadius: 8, fontSize: 13, color: text40, cursor: "pointer" }}>← Change Plan</button>
+            </nav>
 
-                <button onClick={goToGetStarted} style={{
-                    padding: "8px 16px",
-                    background: "transparent",
-                    border: `1px solid ${text20}`,
-                    borderRadius: 8,
-                    fontSize: 13,
-                    color: text60,
-                    cursor: "pointer",
-                }}>
-                    ← Back to Plans
-                </button>
-            </header>
-
-            {/* Main Content */}
-            <main style={{
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 48,
-                position: "relative",
-                zIndex: 10,
-            }}>
+            {/* Main */}
+            <main style={{ position: "relative", zIndex: 10, padding: "60px 24px 80px" }}>
                 {currentStep === "info" && <InfoStep />}
                 {currentStep === "checkout" && <CheckoutStep />}
                 {currentStep === "success" && <SuccessStep />}
-                {currentStep === "onboarding" && (
-                    <div style={{ textAlign: "center" }}>
-                        <h2 style={{ color: text100 }}>Onboarding Step {onboardingStep}</h2>
-                        <button onClick={handleOnboardingNext} style={{
-                            marginTop: 20,
-                            padding: "16px 32px",
-                            background: activePlan.color,
-                            border: "none",
-                            borderRadius: 12,
-                            fontWeight: 600,
-                            color: void_,
-                            cursor: "pointer",
-                        }}>
-                            {onboardingStep < 6 ? "Next →" : "Go to Dashboard"}
-                        </button>
-                    </div>
-                )}
+                {currentStep === "onboarding" && <OnboardingStep />}
             </main>
 
-            {/* Confetti */}
-            {showConfetti && (
-                <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1000, overflow: "hidden" }}>
-                    {[...Array(50)].map((_, i) => (
-                        <div key={i} style={{
-                            position: "absolute",
-                            left: `${Math.random() * 100}%`,
-                            top: -20,
-                            width: Math.random() * 10 + 5,
-                            height: Math.random() * 10 + 5,
-                            background: [mint, lavender, gold, coral][Math.floor(Math.random() * 4)],
-                            borderRadius: Math.random() > 0.5 ? "50%" : "2px",
-                            animation: `confetti ${2 + Math.random() * 2}s ease-out forwards`,
-                            animationDelay: `${Math.random() * 0.5}s`,
-                        }} />
-                    ))}
-                </div>
-            )}
-
-            <style>{`
-                @keyframes confetti {
-                    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-                    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-                }
-            `}</style>
+            {showConfetti && <Confetti />}
+            <style>{`@keyframes confetti { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }`}</style>
         </div>
     )
 }
