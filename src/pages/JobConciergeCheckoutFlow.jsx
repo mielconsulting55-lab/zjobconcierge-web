@@ -1,533 +1,972 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 const API_BASE = 'https://job-concierge-production-dcb5.up.railway.app';
 
-// Plan configurations
 const PLANS = {
-  trial: { name: 'Free Trial', price: 0, jobs: 3, duration: '7 days' },
-  basic: { name: 'Basic', price: 19, jobs: 5, duration: 'month' },
-  pro: { name: 'Pro', price: 39, jobs: 15, duration: 'month' },
-  vip: { name: 'VIP', price: 69, jobs: 30, duration: 'month' },
-  enterprise: { name: 'Enterprise', price: 149, jobs: 100, duration: 'month' },
+  trial: { name: 'Free Trial', price: 0, jobs: 3, period: '7 days' },
+  basic: { name: 'Basic', price: 19, jobs: 5, period: 'mo' },
+  pro: { name: 'Pro', price: 39, jobs: 15, period: 'mo' },
+  vip: { name: 'VIP', price: 69, jobs: 30, period: 'mo' },
+  enterprise: { name: 'Enterprise', price: 149, jobs: 100, period: 'mo' },
 };
 
+/* ============================================================================
+   STYLES - Premium Design System
+   ============================================================================ */
+const CSS = `
+  * { box-sizing: border-box; }
+  
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  
+  /* Base Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
+  
+  @keyframes successPop {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  @keyframes checkDraw {
+    to { stroke-dashoffset: 0; }
+  }
+  
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+  
+  @keyframes ripple {
+    to { transform: scale(4); opacity: 0; }
+  }
+  
+  /* Utility Classes */
+  .fade-up { animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .fade-in { animation: fadeIn 0.4s ease forwards; }
+  .scale-in { animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .slide-down { animation: slideDown 0.3s ease forwards; }
+  .shake { animation: shake 0.4s ease; }
+  .success-pop { animation: successPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  .float { animation: float 3s ease-in-out infinite; }
+  
+  /* Input Styles */
+  .premium-input {
+    width: 100%;
+    padding: 16px 18px;
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+  
+  .premium-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+    font-weight: 400;
+  }
+  
+  .premium-input:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .premium-input:focus {
+    border-color: #3CFFD0;
+    background: rgba(60, 255, 208, 0.03);
+    box-shadow: 0 0 0 4px rgba(60, 255, 208, 0.1);
+  }
+  
+  /* Code Input */
+  .code-input {
+    width: 54px;
+    height: 68px;
+    font-size: 28px;
+    font-family: 'Inter', monospace;
+    font-weight: 700;
+    text-align: center;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    outline: none;
+    transition: all 0.2s ease;
+    caret-color: #3CFFD0;
+  }
+  
+  .code-input:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .code-input:focus {
+    border-color: #3CFFD0;
+    background: rgba(60, 255, 208, 0.05);
+    box-shadow: 0 0 0 4px rgba(60, 255, 208, 0.1);
+    transform: scale(1.05);
+  }
+  
+  .code-input.filled {
+    border-color: #3CFFD0;
+    background: rgba(60, 255, 208, 0.08);
+  }
+  
+  /* Button Styles */
+  .premium-btn {
+    position: relative;
+    width: 100%;
+    padding: 18px 32px;
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    color: #0a0a0f;
+    background: linear-gradient(135deg, #3CFFD0 0%, #00D4AA 100%);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(60, 255, 208, 0.35);
+  }
+  
+  .premium-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  
+  .premium-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .premium-btn .btn-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* Link Styles */
+  .text-link {
+    color: #3CFFD0;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    text-decoration: none;
+  }
+  
+  .text-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+  }
+  
+  /* Step Indicator */
+  .step-dot {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .step-line {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Card */
+  .glass-card {
+    background: rgba(12, 12, 20, 0.85);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 
+      0 0 0 1px rgba(255, 255, 255, 0.03),
+      0 20px 50px -20px rgba(0, 0, 0, 0.5),
+      0 0 100px -50px rgba(60, 255, 208, 0.15);
+  }
+  
+  /* Success Check Animation */
+  .check-circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    animation: checkDraw 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.2s forwards;
+  }
+  
+  .check-mark {
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: checkDraw 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.6s forwards;
+  }
+  
+  /* Responsive */
+  @media (max-width: 480px) {
+    .code-input {
+      width: 46px;
+      height: 58px;
+      font-size: 24px;
+      border-radius: 10px;
+    }
+  }
+`;
+
+/* ============================================================================
+   COMPONENTS
+   ============================================================================ */
+
+// Inject global styles
+const GlobalStyles = () => <style dangerouslySetInnerHTML={{ __html: CSS }} />;
+
+// Animated success checkmark
+const SuccessCheck = () => (
+  <svg width="80" height="80" viewBox="0 0 52 52">
+    <circle
+      className="check-circle"
+      cx="26" cy="26" r="25"
+      fill="none"
+      stroke="#3CFFD0"
+      strokeWidth="2"
+    />
+    <path
+      className="check-mark"
+      fill="none"
+      stroke="#3CFFD0"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M14 27l7 7 16-16"
+    />
+  </svg>
+);
+
+// Loading spinner
+const Spinner = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    style={{ animation: 'spin 0.8s linear infinite' }}
+  >
+    <circle
+      cx="12" cy="12" r="10"
+      stroke="currentColor"
+      strokeWidth="3"
+      fill="none"
+      opacity="0.2"
+    />
+    <path
+      fill="currentColor"
+      d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z"
+    />
+  </svg>
+);
+
+// Arrow icon
+const ArrowIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M12 5l7 7-7 7"/>
+  </svg>
+);
+
+/* ============================================================================
+   MAIN COMPONENT
+   ============================================================================ */
 export default function JobConciergeCheckoutFlow() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
-  // Get plan from URL
-  const planFromUrl = searchParams.get('plan') || 'trial';
-  const plan = PLANS[planFromUrl] || PLANS.trial;
-  
-  // Steps: 1=email, 2=verify code, 3=payment, 4=success
-  const [step, setStep] = useState(1);
-  
-  // Form data
-  const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
+  const planKey = searchParams.get('plan') || 'trial';
+  const plan = PLANS[planKey] || PLANS.trial;
+  const isFree = plan.price === 0;
   
   // State
+  const [step, setStep] = useState(1);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isWhitelisted, setIsWhitelisted] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [cooldown, setCooldown] = useState(0);
+  const [shaking, setShaking] = useState(false);
   
-  // Refs for code inputs
-  const codeInputRefs = useRef([]);
+  const codeRefs = useRef([]);
+  const totalSteps = isFree ? 3 : 4;
   
-  // Resend cooldown timer
+  // Cooldown timer
   useEffect(() => {
-    if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-      return () => clearTimeout(timer);
+    if (cooldown > 0) {
+      const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+      return () => clearTimeout(t);
     }
-  }, [resendCooldown]);
-
-  // Handle email submission
-  const handleEmailSubmit = async (e) => {
+  }, [cooldown]);
+  
+  // Show error with shake
+  const showError = useCallback((msg) => {
+    setError(msg);
+    setShaking(true);
+    setTimeout(() => setShaking(false), 400);
+  }, []);
+  
+  // Handle step 1: Submit email
+  const handleSubmitEmail = async (e) => {
     e.preventDefault();
+    if (!name.trim() || !email.trim()) return;
+    
     setError('');
     setLoading(true);
     
     try {
-      // First check if email is valid/whitelisted
-      const checkResponse = await fetch(`${API_BASE}/auth/check-email`, {
+      // Check email
+      const checkRes = await fetch(`${API_BASE}/auth/check-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({ email: email.toLowerCase().trim() }),
       });
+      const checkData = await checkRes.json();
       
-      const checkData = await checkResponse.json();
-      
-      if (!checkResponse.ok) {
-        throw new Error(checkData.detail || 'Failed to check email');
-      }
-      
+      if (!checkRes.ok) throw new Error(checkData.detail || 'Invalid email');
       if (checkData.is_blocked) {
-        setError(checkData.message || 'Please use a valid email address');
-        setLoading(false);
+        showError('Please use a valid email address');
         return;
       }
       
-      // If whitelisted, skip verification entirely
+      // Whitelisted = skip verification
       if (checkData.is_whitelisted) {
-        setIsWhitelisted(true);
-        setLoading(false);
-        // Skip to payment (step 3) or success (step 4) for free trial
-        if (planFromUrl === 'trial' || plan.price === 0) {
-          setStep(4); // Success
-        } else {
-          setStep(3); // Payment
-        }
+        setStep(isFree ? 3 : 4); // Go to success
         return;
       }
       
-      // Send verification code
-      const sendResponse = await fetch(`${API_BASE}/auth/send-code`, {
+      // Send code
+      const sendRes = await fetch(`${API_BASE}/auth/send-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: email.trim().toLowerCase(),
-          full_name: fullName.trim() || 'Friend'
-        }),
+        body: JSON.stringify({ email: email.toLowerCase().trim(), full_name: name.trim() }),
       });
+      const sendData = await sendRes.json();
       
-      const sendData = await sendResponse.json();
+      if (!sendRes.ok) throw new Error(sendData.detail || 'Failed to send code');
       
-      if (!sendResponse.ok) {
-        throw new Error(sendData.detail || 'Failed to send verification code');
-      }
-      
-      setCodeSent(true);
-      setResendCooldown(60); // 60 second cooldown
-      setStep(2); // Go to code verification step
+      setCooldown(60);
+      setStep(2);
       
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      showError(err.message);
     } finally {
       setLoading(false);
     }
   };
-
-  // Handle code input change
-  const handleCodeChange = (index, value) => {
-    // Only allow digits
-    if (value && !/^\d$/.test(value)) return;
+  
+  // Handle code input
+  const handleCodeInput = (index, value) => {
+    if (!/^\d?$/.test(value)) return;
     
-    const newCode = [...verificationCode];
+    const newCode = [...code];
     newCode[index] = value;
-    setVerificationCode(newCode);
+    setCode(newCode);
     
-    // Auto-focus next input
+    // Auto-advance
     if (value && index < 5) {
-      codeInputRefs.current[index + 1]?.focus();
+      codeRefs.current[index + 1]?.focus();
     }
   };
-
-  // Handle code paste
-  const handleCodePaste = (e) => {
+  
+  // Handle paste
+  const handlePaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').trim();
-    if (/^\d{6}$/.test(pastedData)) {
-      setVerificationCode(pastedData.split(''));
-      codeInputRefs.current[5]?.focus();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted.length === 6) {
+      setCode(pasted.split(''));
+      codeRefs.current[5]?.focus();
     }
   };
-
+  
   // Handle backspace
   const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !verificationCode[index] && index > 0) {
-      codeInputRefs.current[index - 1]?.focus();
+    if (e.key === 'Backspace' && !code[index] && index > 0) {
+      codeRefs.current[index - 1]?.focus();
     }
   };
-
-  // Handle code verification
+  
+  // Handle step 2: Verify code
   const handleVerifyCode = async (e) => {
     e.preventDefault();
-    setError('');
-    
-    const code = verificationCode.join('');
-    if (code.length !== 6) {
-      setError('Please enter the complete 6-digit code');
+    const fullCode = code.join('');
+    if (fullCode.length !== 6) {
+      showError('Please enter all 6 digits');
       return;
     }
     
-    setLoading(true);
-    
-    try {
-      const response = await fetch(`${API_BASE}/auth/verify-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: email.trim().toLowerCase(),
-          code: code
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.detail || 'Invalid verification code');
-      }
-      
-      if (data.verified) {
-        // Success! Move to next step
-        if (planFromUrl === 'trial' || plan.price === 0) {
-          setStep(4); // Success for free trial
-        } else {
-          setStep(3); // Payment for paid plans
-        }
-      }
-      
-    } catch (err) {
-      setError(err.message || 'Failed to verify code');
-      // Clear the code inputs
-      setVerificationCode(['', '', '', '', '', '']);
-      codeInputRefs.current[0]?.focus();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle resend code
-  const handleResendCode = async () => {
-    if (resendCooldown > 0) return;
-    
     setError('');
     setLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE}/auth/resend-code`, {
+      const res = await fetch(`${API_BASE}/auth/verify-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: email.trim().toLowerCase(),
-          full_name: fullName.trim() || 'Friend'
-        }),
+        body: JSON.stringify({ email: email.toLowerCase().trim(), code: fullCode }),
       });
+      const data = await res.json();
       
-      const data = await response.json();
+      if (!res.ok) throw new Error(data.detail || 'Invalid code');
       
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to resend code');
+      if (data.verified) {
+        setStep(isFree ? 3 : 3); // Payment or success
       }
       
-      setResendCooldown(60);
-      setVerificationCode(['', '', '', '', '', '']);
-      
     } catch (err) {
-      setError(err.message || 'Failed to resend code');
+      showError(err.message);
+      setCode(['', '', '', '', '', '']);
+      codeRefs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
   };
+  
+  // Resend code
+  const handleResend = async () => {
+    if (cooldown > 0) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/resend-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), full_name: name.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Failed to resend');
+      }
+      setCooldown(60);
+      setCode(['', '', '', '', '', '']);
+      setError('');
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Masked email
+  const maskedEmail = () => {
+    if (!email.includes('@')) return email;
+    const [local, domain] = email.split('@');
+    const masked = local.length > 2 
+      ? `${local[0]}${'•'.repeat(Math.min(local.length - 2, 4))}${local.slice(-1)}`
+      : local;
+    return `${masked}@${domain}`;
+  };
 
-  // Render step indicator
-  const renderStepIndicator = () => {
-    const steps = planFromUrl === 'trial' || plan.price === 0
-      ? ['Email', 'Verify', 'Done']
-      : ['Email', 'Verify', 'Payment', 'Done'];
+  /* ==========================================================================
+     RENDER: Step Indicator
+     ========================================================================== */
+  const StepIndicator = () => {
+    const steps = isFree 
+      ? ['Account', 'Verify', 'Complete']
+      : ['Account', 'Verify', 'Payment', 'Complete'];
     
     return (
-      <div className="flex justify-center mb-8">
-        {steps.map((label, index) => {
-          const stepNum = index + 1;
-          const isActive = step === stepNum;
-          const isCompleted = step > stepNum;
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 48 }}>
+        {steps.map((label, i) => {
+          const num = i + 1;
+          const isActive = step === num;
+          const isDone = step > num;
           
           return (
-            <div key={label} className="flex items-center">
-              <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                ${isCompleted ? 'bg-[#3CFFD0] text-[#04040A]' : ''}
-                ${isActive ? 'bg-[#3CFFD0] text-[#04040A]' : ''}
-                ${!isActive && !isCompleted ? 'bg-[#1a1a2e] text-gray-400 border border-gray-600' : ''}
-              `}>
-                {isCompleted ? '✓' : stepNum}
+            <React.Fragment key={label}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div
+                  className="step-dot"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: isDone
+                      ? 'linear-gradient(135deg, #3CFFD0, #00D4AA)'
+                      : isActive
+                      ? 'linear-gradient(135deg, #3CFFD0, #00D4AA)'
+                      : 'rgba(255,255,255,0.05)',
+                    color: isDone || isActive ? '#0a0a0f' : 'rgba(255,255,255,0.3)',
+                    border: isDone || isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: isActive ? '0 0 20px rgba(60, 255, 208, 0.4)' : 'none',
+                  }}
+                >
+                  {isDone ? '✓' : num}
+                </div>
+                <span style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: isActive ? '#fff' : 'rgba(255,255,255,0.4)',
+                }}>
+                  {label}
+                </span>
               </div>
-              <span className={`ml-2 text-sm ${isActive ? 'text-white' : 'text-gray-400'}`}>
-                {label}
-              </span>
-              {index < steps.length - 1 && (
-                <div className={`w-12 h-0.5 mx-3 ${isCompleted ? 'bg-[#3CFFD0]' : 'bg-gray-600'}`} />
+              
+              {i < steps.length - 1 && (
+                <div
+                  className="step-line"
+                  style={{
+                    width: 60,
+                    height: 2,
+                    margin: '0 12px 24px',
+                    borderRadius: 1,
+                    background: isDone
+                      ? 'linear-gradient(90deg, #3CFFD0, rgba(60,255,208,0.3))'
+                      : 'rgba(255,255,255,0.08)',
+                  }}
+                />
               )}
-            </div>
+            </React.Fragment>
           );
         })}
       </div>
     );
   };
 
-  // Step 1: Email Input
-  const renderEmailStep = () => (
-    <form onSubmit={handleEmailSubmit} className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Full Name
-        </label>
-        <input
-          type="text"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          placeholder="John Doe"
-          className="w-full px-4 py-3 bg-[#0E0E14] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#3CFFD0] focus:outline-none transition-colors"
-          required
-        />
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Email Address
-        </label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="w-full px-4 py-3 bg-[#0E0E14] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#3CFFD0] focus:outline-none transition-colors"
-          required
-        />
-      </div>
-      
-      {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-          {error}
-        </div>
-      )}
-      
-      <button
-        type="submit"
-        disabled={loading || !email || !fullName}
-        className="w-full py-4 bg-gradient-to-r from-[#3CFFD0] to-[#2DD4BF] text-[#04040A] font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? (
-          <span className="flex items-center justify-center">
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Sending...
-          </span>
-        ) : (
-          'Continue →'
-        )}
-      </button>
-    </form>
-  );
+  /* ==========================================================================
+     RENDER: Error Message
+     ========================================================================== */
+  const ErrorMessage = () => error ? (
+    <div
+      className={shaking ? 'shake' : ''}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '14px 16px',
+        marginBottom: 24,
+        background: 'rgba(255, 59, 48, 0.08)',
+        border: '1px solid rgba(255, 59, 48, 0.2)',
+        borderRadius: 10,
+        color: '#FF6B6B',
+        fontSize: 14,
+        fontWeight: 500,
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      {error}
+    </div>
+  ) : null;
 
-  // Step 2: Code Verification
-  const renderVerifyStep = () => (
-    <form onSubmit={handleVerifyCode} className="space-y-6">
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-[#3CFFD0]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-[#3CFFD0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        </div>
-        <h3 className="text-xl font-semibold text-white mb-2">Check your email</h3>
-        <p className="text-gray-400 text-sm">
-          We sent a 6-digit code to<br />
-          <span className="text-[#3CFFD0] font-medium">{email}</span>
+  /* ==========================================================================
+     RENDER: Step 1 - Email
+     ========================================================================== */
+  const Step1 = () => (
+    <div className="fade-up">
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 700, color: '#fff' }}>
+          Create your account
+        </h2>
+        <p style={{ margin: 0, color: 'rgba(255,255,255,0.5)', fontSize: 15 }}>
+          Start automating your job applications
         </p>
       </div>
       
-      {/* 6-digit code input */}
-      <div className="flex justify-center gap-3" onPaste={handleCodePaste}>
-        {verificationCode.map((digit, index) => (
+      <form onSubmit={handleSubmitEmail}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Full Name
+          </label>
           <input
-            key={index}
-            ref={(el) => (codeInputRefs.current[index] = el)}
             type="text"
-            inputMode="numeric"
-            maxLength={1}
-            value={digit}
-            onChange={(e) => handleCodeChange(index, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(index, e)}
-            className="w-12 h-14 text-center text-2xl font-bold bg-[#0E0E14] border-2 border-gray-700 rounded-xl text-white focus:border-[#3CFFD0] focus:outline-none transition-colors"
-            autoFocus={index === 0}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="John Doe"
+            className="premium-input"
+            required
+            autoFocus
           />
+        </div>
+        
+        <div style={{ marginBottom: 24 }}>
+          <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Email Address
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="premium-input"
+            required
+          />
+        </div>
+        
+        <ErrorMessage />
+        
+        <button
+          type="submit"
+          disabled={loading || !name.trim() || !email.trim()}
+          className="premium-btn"
+        >
+          <span className="btn-content">
+            {loading ? <><Spinner /> Sending code...</> : <>Continue <ArrowIcon /></>}
+          </span>
+        </button>
+      </form>
+      
+      <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
+        We'll send a 6-digit verification code to your email
+      </p>
+    </div>
+  );
+
+  /* ==========================================================================
+     RENDER: Step 2 - Verify Code
+     ========================================================================== */
+  const Step2 = () => (
+    <div className="fade-up">
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div className="float" style={{
+          width: 72,
+          height: 72,
+          margin: '0 auto 20px',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(60,255,208,0.15), rgba(60,255,208,0.05))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px solid rgba(60,255,208,0.2)',
+        }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3CFFD0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+          </svg>
+        </div>
+        
+        <h2 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 700, color: '#fff' }}>
+          Check your email
+        </h2>
+        <p style={{ margin: 0, color: 'rgba(255,255,255,0.5)', fontSize: 15 }}>
+          Enter the code sent to <span style={{ color: '#3CFFD0', fontWeight: 500 }}>{maskedEmail()}</span>
+        </p>
+      </div>
+      
+      <form onSubmit={handleVerifyCode}>
+        <div 
+          style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 32 }}
+          onPaste={handlePaste}
+        >
+          {code.map((digit, i) => (
+            <input
+              key={i}
+              ref={el => codeRefs.current[i] = el}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              value={digit}
+              onChange={(e) => handleCodeInput(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(i, e)}
+              className={`code-input ${digit ? 'filled' : ''}`}
+              autoFocus={i === 0}
+            />
+          ))}
+        </div>
+        
+        <ErrorMessage />
+        
+        <button
+          type="submit"
+          disabled={loading || code.join('').length !== 6}
+          className="premium-btn"
+        >
+          <span className="btn-content">
+            {loading ? <><Spinner /> Verifying...</> : <>Verify <ArrowIcon /></>}
+          </span>
+        </button>
+      </form>
+      
+      <div style={{ textAlign: 'center', marginTop: 24 }}>
+        <p style={{ margin: '0 0 12px', fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
+          Didn't receive it?{' '}
+          {cooldown > 0 ? (
+            <span>Resend in <span style={{ color: '#3CFFD0' }}>{cooldown}s</span></span>
+          ) : (
+            <span className="text-link" onClick={handleResend}>Resend code</span>
+          )}
+        </p>
+        <span 
+          className="text-link" 
+          style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}
+          onClick={() => { setStep(1); setCode(['','','','','','']); setError(''); }}
+        >
+          ← Use different email
+        </span>
+      </div>
+    </div>
+  );
+
+  /* ==========================================================================
+     RENDER: Step 3 - Payment (for paid plans)
+     ========================================================================== */
+  const Step3Payment = () => (
+    <div className="fade-up">
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <div style={{
+          width: 72,
+          height: 72,
+          margin: '0 auto 20px',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(60,255,208,0.15), rgba(60,255,208,0.05))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px solid rgba(60,255,208,0.2)',
+        }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3CFFD0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+        </div>
+        
+        <h2 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 700, color: '#fff' }}>
+          Complete payment
+        </h2>
+        <p style={{ margin: 0, color: 'rgba(255,255,255,0.5)', fontSize: 15 }}>
+          {plan.name} • <span style={{ color: '#fff', fontWeight: 600 }}>${plan.price}</span>/{plan.period}
+        </p>
+      </div>
+      
+      <div style={{
+        padding: 32,
+        marginBottom: 24,
+        borderRadius: 12,
+        border: '1px dashed rgba(60,255,208,0.3)',
+        background: 'rgba(60,255,208,0.03)',
+        textAlign: 'center',
+      }}>
+        <p style={{ margin: 0, color: 'rgba(255,255,255,0.6)', fontSize: 14, lineHeight: 1.6 }}>
+          Payment integration coming soon.<br/>
+          <span style={{ fontSize: 13, opacity: 0.7 }}>Contact us to activate manually.</span>
+        </p>
+      </div>
+      
+      <button onClick={() => setStep(4)} className="premium-btn">
+        <span className="btn-content">Complete Setup <ArrowIcon /></span>
+      </button>
+    </div>
+  );
+
+  /* ==========================================================================
+     RENDER: Success
+     ========================================================================== */
+  const StepSuccess = () => (
+    <div className="scale-in" style={{ textAlign: 'center' }}>
+      <div className="success-pop" style={{ marginBottom: 24 }}>
+        <SuccessCheck />
+      </div>
+      
+      <h2 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 700, color: '#fff' }}>
+        You're all set!
+      </h2>
+      <p style={{ margin: '0 0 32px', color: 'rgba(255,255,255,0.5)', fontSize: 16 }}>
+        Welcome aboard, {name.split(' ')[0] || 'friend'} 🎉
+      </p>
+      
+      <div style={{
+        padding: 28,
+        borderRadius: 16,
+        background: 'linear-gradient(135deg, rgba(60,255,208,0.08), rgba(60,255,208,0.02))',
+        border: '1px solid rgba(60,255,208,0.15)',
+        textAlign: 'left',
+      }}>
+        <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 600, color: '#fff' }}>
+          🚀 Quick Start Guide
+        </h3>
+        
+        {[
+          { num: 1, title: 'Forward job alerts to:', sub: 'mielconsulting55@gmail.com', highlight: true },
+          { num: 2, title: 'We process daily at 6 AM CT', sub: 'Your packets will be ready each morning' },
+          { num: 3, title: 'Check your inbox', sub: 'Resume, cover letter & interview prep included' },
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', marginBottom: i < 2 ? 18 : 0 }}>
+            <div style={{
+              width: 26,
+              height: 26,
+              borderRadius: '50%',
+              background: 'rgba(60,255,208,0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#3CFFD0',
+              fontSize: 12,
+              fontWeight: 700,
+              marginRight: 14,
+              flexShrink: 0,
+            }}>
+              {item.num}
+            </div>
+            <div>
+              <p style={{ margin: '0 0 4px', color: '#fff', fontWeight: 500, fontSize: 14 }}>
+                {item.title}
+              </p>
+              <p style={{
+                margin: 0,
+                fontSize: 13,
+                color: item.highlight ? '#3CFFD0' : 'rgba(255,255,255,0.5)',
+                fontFamily: item.highlight ? 'monospace' : 'inherit',
+                background: item.highlight ? 'rgba(60,255,208,0.1)' : 'none',
+                padding: item.highlight ? '6px 10px' : 0,
+                borderRadius: 6,
+                display: item.highlight ? 'inline-block' : 'block',
+              }}>
+                {item.sub}
+              </p>
+            </div>
+          </div>
         ))}
       </div>
       
-      {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm text-center">
-          {error}
-        </div>
-      )}
-      
-      <button
-        type="submit"
-        disabled={loading || verificationCode.join('').length !== 6}
-        className="w-full py-4 bg-gradient-to-r from-[#3CFFD0] to-[#2DD4BF] text-[#04040A] font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? (
-          <span className="flex items-center justify-center">
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Verifying...
-          </span>
-        ) : (
-          'Verify Code →'
-        )}
-      </button>
-      
-      {/* Resend code */}
-      <div className="text-center">
-        <p className="text-gray-400 text-sm">
-          Didn't receive the code?{' '}
-          {resendCooldown > 0 ? (
-            <span className="text-gray-500">Resend in {resendCooldown}s</span>
-          ) : (
-            <button
-              type="button"
-              onClick={handleResendCode}
-              disabled={loading}
-              className="text-[#3CFFD0] hover:underline font-medium"
-            >
-              Resend Code
-            </button>
-          )}
-        </p>
-      </div>
-      
-      {/* Change email */}
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={() => {
-            setStep(1);
-            setVerificationCode(['', '', '', '', '', '']);
-            setError('');
-          }}
-          className="text-gray-400 hover:text-white text-sm"
-        >
-          ← Use different email
-        </button>
-      </div>
-    </form>
-  );
-
-  // Step 3: Payment (for paid plans)
-  const renderPaymentStep = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-[#3CFFD0]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-[#3CFFD0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-          </svg>
-        </div>
-        <h3 className="text-xl font-semibold text-white mb-2">Complete Payment</h3>
-        <p className="text-gray-400 text-sm">
-          {plan.name} Plan - ${plan.price}/{plan.duration}
-        </p>
-      </div>
-      
-      {/* Payment form placeholder - integrate with Stripe */}
-      <div className="p-6 bg-[#0E0E14] border border-gray-700 rounded-xl">
-        <p className="text-gray-400 text-center text-sm">
-          Payment integration coming soon.<br />
-          For now, contact us to activate your plan.
-        </p>
-      </div>
-      
-      <button
-        onClick={() => setStep(4)}
-        className="w-full py-4 bg-gradient-to-r from-[#3CFFD0] to-[#2DD4BF] text-[#04040A] font-bold rounded-xl hover:opacity-90 transition-opacity"
-      >
-        Complete Setup →
+      <button onClick={() => navigate('/')} className="premium-btn" style={{ marginTop: 28 }}>
+        <span className="btn-content">Go to Dashboard <ArrowIcon /></span>
       </button>
     </div>
   );
 
-  // Step 4: Success
-  const renderSuccessStep = () => (
-    <div className="text-center space-y-6">
-      <div className="w-20 h-20 bg-[#3CFFD0]/10 rounded-full flex items-center justify-center mx-auto">
-        <svg className="w-10 h-10 text-[#3CFFD0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-      
-      <div>
-        <h3 className="text-2xl font-bold text-white mb-2">You're all set! 🎉</h3>
-        <p className="text-gray-400">
-          Welcome to Job Concierge, {fullName.split(' ')[0] || 'friend'}!
-        </p>
-      </div>
-      
-      <div className="p-6 bg-[#0E0E14] border border-[#3CFFD0]/30 rounded-xl text-left space-y-4">
-        <h4 className="font-semibold text-white">Next Steps:</h4>
-        <div className="space-y-3">
-          <div className="flex items-start">
-            <span className="w-6 h-6 bg-[#3CFFD0]/20 rounded-full flex items-center justify-center text-[#3CFFD0] text-sm font-bold mr-3 mt-0.5">1</span>
-            <div>
-              <p className="text-white font-medium">Forward job alerts to:</p>
-              <p className="text-[#3CFFD0] font-mono">mielconsulting55@gmail.com</p>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <span className="w-6 h-6 bg-[#3CFFD0]/20 rounded-full flex items-center justify-center text-[#3CFFD0] text-sm font-bold mr-3 mt-0.5">2</span>
-            <div>
-              <p className="text-white font-medium">We process jobs daily at 6 AM CT</p>
-              <p className="text-gray-400 text-sm">Your tailored packets will be ready each morning</p>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <span className="w-6 h-6 bg-[#3CFFD0]/20 rounded-full flex items-center justify-center text-[#3CFFD0] text-sm font-bold mr-3 mt-0.5">3</span>
-            <div>
-              <p className="text-white font-medium">Check your email for packets</p>
-              <p className="text-gray-400 text-sm">Resume, cover letter & interview prep included</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <button
-        onClick={() => navigate('/')}
-        className="w-full py-4 bg-gradient-to-r from-[#3CFFD0] to-[#2DD4BF] text-[#04040A] font-bold rounded-xl hover:opacity-90 transition-opacity"
-      >
-        Go to Dashboard →
-      </button>
-    </div>
-  );
-
+  /* ==========================================================================
+     MAIN RENDER
+     ========================================================================== */
   return (
-    <div className="min-h-screen bg-[#04040A] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-[#3CFFD0] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl font-bold text-[#04040A]">Z</span>
+    <>
+      <GlobalStyles />
+      
+      <div style={{
+        minHeight: '100vh',
+        background: '#08080f',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Background gradients */}
+        <div style={{
+          position: 'absolute',
+          top: '-30%',
+          right: '-20%',
+          width: 800,
+          height: 800,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(60,255,208,0.08) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute',
+          bottom: '-20%',
+          left: '-10%',
+          width: 600,
+          height: 600,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        
+        <div style={{ width: '100%', maxWidth: 440, position: 'relative', zIndex: 1 }}>
+          {/* Header */}
+          <div className="fade-up" style={{ textAlign: 'center', marginBottom: 40 }}>
+            <div style={{
+              width: 60,
+              height: 60,
+              margin: '0 auto 16px',
+              borderRadius: 16,
+              background: 'linear-gradient(135deg, #3CFFD0, #00D4AA)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 10px 40px rgba(60,255,208,0.3)',
+            }}>
+              <span style={{ fontSize: 26, fontWeight: 800, color: '#0a0a0f' }}>Z</span>
+            </div>
+            <h1 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 700, color: '#fff', letterSpacing: -0.5 }}>
+              Job Concierge
+            </h1>
+            {step < (isFree ? 3 : 4) && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                marginTop: 12,
+                padding: '6px 14px',
+                borderRadius: 20,
+                background: 'rgba(60,255,208,0.1)',
+                border: '1px solid rgba(60,255,208,0.2)',
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#3CFFD0' }}>
+                  {plan.name} {plan.price > 0 && `• $${plan.price}/${plan.period}`}
+                </span>
+              </div>
+            )}
           </div>
-          <h1 className="text-2xl font-bold text-white">Job Concierge</h1>
-          {step < 4 && (
-            <p className="text-gray-400 mt-1">
-              {plan.name} Plan {plan.price > 0 && `- $${plan.price}/${plan.duration}`}
-            </p>
-          )}
+          
+          <StepIndicator />
+          
+          {/* Card */}
+          <div className="glass-card" style={{ borderRadius: 20, padding: '36px 32px' }}>
+            {step === 1 && <Step1 />}
+            {step === 2 && <Step2 />}
+            {step === 3 && !isFree && <Step3Payment />}
+            {((step === 3 && isFree) || step === 4) && <StepSuccess />}
+          </div>
+          
+          {/* Footer */}
+          <p style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
+            🔒 Secure & encrypted • <span style={{ cursor: 'pointer' }}>Terms</span> • <span style={{ cursor: 'pointer' }}>Privacy</span>
+          </p>
         </div>
-        
-        {/* Step indicator */}
-        {renderStepIndicator()}
-        
-        {/* Card */}
-        <div className="bg-[#0a0a12] border border-gray-800 rounded-2xl p-8">
-          {step === 1 && renderEmailStep()}
-          {step === 2 && renderVerifyStep()}
-          {step === 3 && renderPaymentStep()}
-          {step === 4 && renderSuccessStep()}
-        </div>
-        
-        {/* Footer */}
-        <p className="text-center text-gray-500 text-sm mt-6">
-          By continuing, you agree to our Terms of Service
-        </p>
       </div>
-    </div>
+    </>
   );
 }
