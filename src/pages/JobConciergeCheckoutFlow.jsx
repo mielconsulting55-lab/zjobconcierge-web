@@ -1,15 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const API_BASE = 'https://job-concierge-production-dcb5.up.railway.app';
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51Svg4QFOOs9awr9GzOuNuIMbEFyiqh8xMCpjxoEl4WGCCEuc58OzG1gzOYr4WkO9gJrOpXIiE4ZcDVxxEjmpY5bB005i2IPOWS';
+
+// Initialize Stripe
+const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 const PLANS = {
-  trial: { name: 'Free Trial', price: 0, jobs: 3, period: '7 days' },
-  free: { name: 'Free Trial', price: 0, jobs: 3, period: '7 days' },
-  basic: { name: 'Basic', price: 19, jobs: 5, period: 'mo' },
-  pro: { name: 'Pro', price: 39, jobs: 15, period: 'mo' },
-  vip: { name: 'VIP', price: 69, jobs: 30, period: 'mo' },
-  enterprise: { name: 'Enterprise', price: 149, jobs: 100, period: 'mo' },
+  trial: { name: 'Free Trial', price: 19, jobs: 3, period: 'mo', trialDays: 7 },
+  free: { name: 'Free Trial', price: 19, jobs: 3, period: 'mo', trialDays: 7 },
+  basic: { name: 'Basic', price: 19, jobs: 5, period: 'mo', trialDays: 0 },
+  pro: { name: 'Pro', price: 39, jobs: 15, period: 'mo', trialDays: 0 },
+  vip: { name: 'VIP', price: 69, jobs: 30, period: 'mo', trialDays: 0 },
+  enterprise: { name: 'Enterprise', price: 149, jobs: 100, period: 'mo', trialDays: 0 },
 };
 
 const CSS = `
@@ -61,10 +67,49 @@ const CSS = `
   .check-circle { stroke-dasharray: 166; stroke-dashoffset: 166; animation: checkDraw 0.6s ease 0.2s forwards; }
   .check-mark { stroke-dasharray: 48; stroke-dashoffset: 48; animation: checkDraw 0.3s ease 0.6s forwards; }
   
+  /* Stripe Card Element Styling */
+  .stripe-card-container {
+    padding: 16px 18px;
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .stripe-card-container:hover {
+    border-color: rgba(255,255,255,0.2);
+  }
+  .stripe-card-container.focused {
+    border-color: #3CFFD0;
+    box-shadow: 0 0 0 4px rgba(60,255,208,0.1);
+  }
+  .stripe-card-container.error {
+    border-color: #FF6B6B;
+  }
+  
   @media (max-width: 480px) { .code-input { width: 44px; height: 56px; font-size: 22px; } }
 `;
 
-// Components defined OUTSIDE to prevent re-creation on each render
+// Stripe Card Element options
+const CARD_ELEMENT_OPTIONS = {
+  style: {
+    base: {
+      color: '#ffffff',
+      fontFamily: "'Inter', sans-serif",
+      fontSize: '16px',
+      fontWeight: '500',
+      '::placeholder': {
+        color: 'rgba(255, 255, 255, 0.3)',
+      },
+    },
+    invalid: {
+      color: '#FF6B6B',
+      iconColor: '#FF6B6B',
+    },
+  },
+  hidePostalCode: true,
+};
+
+// Components
 const Spinner = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" style={{ animation: 'spin 0.8s linear infinite' }}>
     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.2" />
@@ -79,9 +124,8 @@ const SuccessCheck = () => (
   </svg>
 );
 
-// Step Indicator - moved OUTSIDE the main component
-const StepIndicator = ({ step, isFree }) => {
-  const steps = isFree ? ['Account', 'Verify', 'Complete'] : ['Account', 'Verify', 'Payment', 'Complete'];
+const StepIndicator = ({ step, isTrial }) => {
+  const steps = ['Account', 'Verify', 'Payment', 'Complete'];
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 48 }}>
       {steps.map((label, i) => {
@@ -111,16 +155,179 @@ const StepIndicator = ({ step, isFree }) => {
   );
 };
 
-export default function JobConciergeCheckoutFlow() {
+// Payment Form Component (uses Stripe hooks)
+const PaymentForm = ({ email, name, plan, customerId, onSuccess, onError }) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [cardFocused, setCardFocused] = useState(false);
+  const [cardError, setCardError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // 1. Create SetupIntent
+      const setupRes = await fetch(`${API_BASE}/stripe/create-setup-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_id: customerId }),
+      });
+      
+      if (!setupRes.ok) {
+        const data = await setupRes.json();
+        throw new Error(data.detail || 'Failed to initialize payment');
+      }
+      
+      const { client_secret } = await setupRes.json();
+
+      // 2. Confirm card setup
+      const { error: stripeError, setupIntent } = await stripe.confirmCardSetup(client_secret, {
+        payment_method: {
+          card: elements.getElement(CardElement),
+          billing_details: {
+            name: name,
+            email: email,
+          },
+        },
+      });
+
+      if (stripeError) {
+        throw new Error(stripeError.message);
+      }
+
+      // 3. Start trial with saved payment method
+      const trialRes = await fetch(`${API_BASE}/stripe/start-trial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          customer_id: customerId,
+          payment_method_id: setupIntent.payment_method,
+          plan: plan,
+        }),
+      });
+
+      if (!trialRes.ok) {
+        const data = await trialRes.json();
+        throw new Error(data.detail || 'Failed to start trial');
+      }
+
+      const trialData = await trialRes.json();
+      onSuccess(trialData);
+
+    } catch (err) {
+      setError(err.message);
+      onError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCardChange = (event) => {
+    if (event.error) {
+      setCardError(event.error.message);
+    } else {
+      setCardError('');
+    }
+  };
+
+  const planConfig = PLANS[plan] || PLANS.trial;
+  const isTrial = planConfig.trialDays > 0;
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div style={{ marginBottom: 24 }}>
+        <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Card Details
+        </label>
+        <div 
+          className={`stripe-card-container ${cardFocused ? 'focused' : ''} ${cardError ? 'error' : ''}`}
+        >
+          <CardElement 
+            options={CARD_ELEMENT_OPTIONS}
+            onChange={handleCardChange}
+            onFocus={() => setCardFocused(true)}
+            onBlur={() => setCardFocused(false)}
+          />
+        </div>
+        {cardError && (
+          <p style={{ margin: '8px 0 0', fontSize: 13, color: '#FF6B6B' }}>{cardError}</p>
+        )}
+      </div>
+
+      {/* Trial Notice */}
+      {isTrial && (
+        <div style={{ 
+          padding: 16, 
+          marginBottom: 24, 
+          borderRadius: 12, 
+          background: 'rgba(60,255,208,0.08)', 
+          border: '1px solid rgba(60,255,208,0.2)' 
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3CFFD0" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <div>
+              <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#fff' }}>
+                You won't be charged today
+              </p>
+              <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                Your 7-day free trial starts now. After the trial, you'll be billed ${planConfig.price}/month. Cancel anytime.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ padding: '14px 16px', marginBottom: 24, background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.2)', borderRadius: 10, color: '#FF6B6B', fontSize: 14 }}>
+          {error}
+        </div>
+      )}
+
+      <button 
+        type="submit" 
+        disabled={loading || !stripe} 
+        className="premium-btn"
+      >
+        {loading ? (
+          <><Spinner /> Processing...</>
+        ) : isTrial ? (
+          <>Start Free Trial →</>
+        ) : (
+          <>Subscribe - ${planConfig.price}/mo →</>
+        )}
+      </button>
+
+      <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+        🔒 Secured by Stripe. Your card details are encrypted.
+      </p>
+    </form>
+  );
+};
+
+// Main Checkout Component
+function CheckoutFlow() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const planKey = searchParams.get('plan') || 'trial';
   const plan = PLANS[planKey] || PLANS.trial;
-  const isFree = plan.price === 0;
+  const isTrial = plan.trialDays > 0;
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [customerId, setCustomerId] = useState('');
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -133,7 +340,7 @@ export default function JobConciergeCheckoutFlow() {
     if (localStorage.getItem('jc_user_email')) navigate('/dashboard');
   }, [navigate]);
 
-  // Cooldown timer - only on step 2
+  // Cooldown timer
   useEffect(() => {
     if (step === 2 && cooldown > 0) {
       const t = setTimeout(() => setCooldown(c => c - 1), 1000);
@@ -158,6 +365,7 @@ export default function JobConciergeCheckoutFlow() {
     setError('');
     setLoading(true);
     try {
+      // Check email
       const checkRes = await fetch(`${API_BASE}/auth/check-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,18 +379,14 @@ export default function JobConciergeCheckoutFlow() {
         return;
       }
 
-      // Whitelisted = skip verification
-      if (checkData.is_whitelisted) {
-        if (isFree) {
-          goToDashboard();
-          return;
-        }
-        setStep(3);
+      // Check if already used trial
+      if (checkData.has_used_trial) {
+        showError('This email has already used a trial. Please choose a paid plan.');
         setLoading(false);
         return;
       }
 
-      // Send code
+      // Send verification code
       const sendRes = await fetch(`${API_BASE}/auth/send-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -190,6 +394,7 @@ export default function JobConciergeCheckoutFlow() {
       });
       const sendData = await sendRes.json();
       if (!sendRes.ok) throw new Error(sendData.detail || 'Failed to send code');
+      
       setCooldown(60);
       setStep(2);
     } catch (err) {
@@ -245,12 +450,23 @@ export default function JobConciergeCheckoutFlow() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Invalid code');
+      
       if (data.verified) {
-        if (isFree) {
-          setStep(4);
-        } else {
-          setStep(3);
+        // Create Stripe customer
+        const customerRes = await fetch(`${API_BASE}/stripe/create-customer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.toLowerCase().trim(), name: name.trim() }),
+        });
+        
+        if (!customerRes.ok) {
+          const customerData = await customerRes.json();
+          throw new Error(customerData.detail || 'Failed to create account');
         }
+        
+        const customerData = await customerRes.json();
+        setCustomerId(customerData.customer_id);
+        setStep(3); // Go to payment
       }
     } catch (err) {
       showError(err.message);
@@ -294,6 +510,14 @@ export default function JobConciergeCheckoutFlow() {
     setError('');
   };
 
+  const handlePaymentSuccess = () => {
+    setStep(4);
+  };
+
+  const handlePaymentError = (msg) => {
+    // Error is handled in PaymentForm
+  };
+
   return (
     <>
       <style>{CSS}</style>
@@ -310,12 +534,14 @@ export default function JobConciergeCheckoutFlow() {
             <h1 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 700, color: '#fff' }}>Job Concierge</h1>
             {step < 4 && (
               <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: 12, padding: '6px 14px', borderRadius: 20, background: 'rgba(60,255,208,0.1)', border: '1px solid rgba(60,255,208,0.2)' }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#3CFFD0' }}>{plan.name} {plan.price > 0 && `• $${plan.price}/${plan.period}`}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#3CFFD0' }}>
+                  {isTrial ? '7-Day Free Trial' : `${plan.name} • $${plan.price}/${plan.period}`}
+                </span>
               </div>
             )}
           </div>
 
-          <StepIndicator step={step} isFree={isFree} />
+          <StepIndicator step={step} isTrial={isTrial} />
 
           <div className="glass-card" style={{ padding: '36px 32px' }}>
             {/* Step 1: Email */}
@@ -328,27 +554,11 @@ export default function JobConciergeCheckoutFlow() {
                 <form onSubmit={handleSubmitEmail}>
                   <div style={{ marginBottom: 20 }}>
                     <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Full Name</label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="John Doe"
-                      className="premium-input"
-                      required
-                      autoComplete="name"
-                    />
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="premium-input" required autoComplete="name" />
                   </div>
                   <div style={{ marginBottom: 24 }}>
                     <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Email Address</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="premium-input"
-                      required
-                      autoComplete="email"
-                    />
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="premium-input" required autoComplete="email" />
                   </div>
                   {error && (
                     <div className={shaking ? 'shake' : ''} style={{ padding: '14px 16px', marginBottom: 24, background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.2)', borderRadius: 10, color: '#FF6B6B', fontSize: 14 }}>
@@ -378,19 +588,9 @@ export default function JobConciergeCheckoutFlow() {
                 <form onSubmit={handleVerifyCode}>
                   <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 32 }} onPaste={handlePaste}>
                     {code.map((digit, i) => (
-                      <input
-                        key={i}
-                        ref={el => codeRefs.current[i] = el}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleCodeInput(i, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(i, e)}
-                        className={`code-input ${digit ? 'filled' : ''}`}
-                        autoFocus={i === 0}
-                        autoComplete="off"
-                      />
+                      <input key={i} ref={el => codeRefs.current[i] = el} type="text" inputMode="numeric" maxLength={1} value={digit}
+                        onChange={(e) => handleCodeInput(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)}
+                        className={`code-input ${digit ? 'filled' : ''}`} autoFocus={i === 0} autoComplete="off" />
                     ))}
                   </div>
                   {error && (
@@ -411,29 +611,48 @@ export default function JobConciergeCheckoutFlow() {
               </div>
             )}
 
-            {/* Step 3: Payment (paid plans only) */}
-            {step === 3 && !isFree && (
+            {/* Step 3: Payment */}
+            {step === 3 && (
               <div className="fade-up">
                 <div style={{ textAlign: 'center', marginBottom: 32 }}>
                   <div style={{ width: 72, height: 72, margin: '0 auto 20px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(60,255,208,0.15), rgba(60,255,208,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(60,255,208,0.2)' }}>
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3CFFD0" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                   </div>
-                  <h2 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 700, color: '#fff' }}>Complete payment</h2>
-                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.5)', fontSize: 15 }}>{plan.name} • <span style={{ color: '#fff', fontWeight: 600 }}>${plan.price}</span>/{plan.period}</p>
+                  <h2 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 700, color: '#fff' }}>
+                    {isTrial ? 'Start your free trial' : 'Complete payment'}
+                  </h2>
+                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.5)', fontSize: 15 }}>
+                    {isTrial ? 'Add a card to start your 7-day trial' : `${plan.name} • $${plan.price}/${plan.period}`}
+                  </p>
                 </div>
-                <div style={{ padding: 32, marginBottom: 24, borderRadius: 12, border: '1px dashed rgba(60,255,208,0.3)', background: 'rgba(60,255,208,0.03)', textAlign: 'center' }}>
-                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.6)', fontSize: 14, lineHeight: 1.6 }}>Payment integration coming soon.<br/><span style={{ fontSize: 13, opacity: 0.7 }}>Contact us to activate manually.</span></p>
-                </div>
-                <button onClick={() => setStep(4)} className="premium-btn">Complete Setup →</button>
+                
+                <PaymentForm
+                  email={email}
+                  name={name}
+                  plan={planKey}
+                  customerId={customerId}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                />
               </div>
             )}
 
             {/* Step 4: Success */}
-            {(step === 4 || (step === 3 && isFree)) && (
+            {step === 4 && (
               <div className="scale-in" style={{ textAlign: 'center' }}>
                 <div className="success-pop" style={{ marginBottom: 24 }}><SuccessCheck /></div>
                 <h2 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 700, color: '#fff' }}>You're all set!</h2>
                 <p style={{ margin: '0 0 32px', color: 'rgba(255,255,255,0.5)', fontSize: 16 }}>Welcome aboard, {name.split(' ')[0] || 'friend'} 🎉</p>
+                
+                {isTrial && (
+                  <div style={{ padding: 16, marginBottom: 24, borderRadius: 12, background: 'rgba(60,255,208,0.08)', border: '1px solid rgba(60,255,208,0.2)', textAlign: 'left' }}>
+                    <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
+                      ✓ Your 7-day free trial has started<br/>
+                      ✓ You'll be charged ${plan.price}/mo after the trial<br/>
+                      ✓ Cancel anytime from your dashboard
+                    </p>
+                  </div>
+                )}
                 
                 <div style={{ padding: 24, borderRadius: 16, background: 'linear-gradient(135deg, rgba(60,255,208,0.08), rgba(60,255,208,0.02))', border: '1px solid rgba(60,255,208,0.15)', textAlign: 'left', marginBottom: 28 }}>
                   <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: '#fff' }}>🚀 Quick Start</h3>
@@ -450,5 +669,14 @@ export default function JobConciergeCheckoutFlow() {
         </div>
       </div>
     </>
+  );
+}
+
+// Wrap with Stripe Elements provider
+export default function JobConciergeCheckoutFlow() {
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutFlow />
+    </Elements>
   );
 }
