@@ -40,11 +40,6 @@ const CSS = `
     to { opacity: 1; transform: translateY(0); }
   }
   
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-  
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
@@ -65,20 +60,6 @@ const CSS = `
     to { stroke-dashoffset: 0; }
   }
   
-  @keyframes gradientShift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-  }
-  
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-8px); }
-  }
-  
-  @keyframes ripple {
-    to { transform: scale(4); opacity: 0; }
-  }
-  
   /* Utility Classes */
   .fade-up { animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .fade-in { animation: fadeIn 0.4s ease forwards; }
@@ -86,7 +67,6 @@ const CSS = `
   .slide-down { animation: slideDown 0.3s ease forwards; }
   .shake { animation: shake 0.4s ease; }
   .success-pop { animation: successPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-  .float { animation: float 3s ease-in-out infinite; }
   
   /* Input Styles */
   .premium-input {
@@ -669,7 +649,7 @@ export default function JobConciergeCheckoutFlow() {
   const Step2 = () => (
     <div className="fade-up">
       <div style={{ textAlign: 'center', marginBottom: 36 }}>
-        <div className="float" style={{
+        <div style={{
           width: 72,
           height: 72,
           margin: '0 auto 20px',
@@ -827,7 +807,7 @@ export default function JobConciergeCheckoutFlow() {
         </h3>
         
         {[
-          { num: 1, title: 'Forward job alerts to:', sub: 'mielconsulting55@gmail.com', highlight: true },
+          { num: 1, title: 'Forward job alerts to:', sub: 'admin@zjobconcierge.com', highlight: true },
           { num: 2, title: 'We process daily at 6 AM CT', sub: 'Your packets will be ready each morning' },
           { num: 3, title: 'Check your inbox', sub: 'Resume, cover letter & interview prep included' },
         ].map((item, i) => (
