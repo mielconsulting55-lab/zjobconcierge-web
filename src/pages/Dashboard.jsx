@@ -1,219 +1,587 @@
+// Dashboard.jsx
+// Premium Dashboard with sidebar - Mobile responsive with EN/FR
+// Place in: src/pages/Dashboard.jsx
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const API_BASE = 'https://job-concierge-production-dcb5.up.railway.app';
 
-const CSS = `
-  * { box-sizing: border-box; }
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-  
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  
-  .fade-up { animation: fadeUp 0.5s ease forwards; }
-  .fade-up-1 { animation: fadeUp 0.5s ease 0.1s forwards; opacity: 0; }
-  .fade-up-2 { animation: fadeUp 0.5s ease 0.2s forwards; opacity: 0; }
-  .fade-up-3 { animation: fadeUp 0.5s ease 0.3s forwards; opacity: 0; }
-  
-  .glass-card {
-    background: rgba(12,12,20,0.85); backdrop-filter: blur(40px);
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 28px;
-  }
-  
-  .stat-card {
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px; padding: 24px; transition: all 0.3s;
-  }
-  .stat-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(60,255,208,0.2); }
-  
-  .premium-btn {
-    padding: 14px 24px; font-size: 14px; font-family: 'Inter', sans-serif; font-weight: 600;
-    color: #0a0a0f; background: linear-gradient(135deg, #3CFFD0, #00D4AA);
-    border: none; border-radius: 10px; cursor: pointer; transition: all 0.3s;
-  }
-  .premium-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(60,255,208,0.35); }
-  
-  .outline-btn {
-    padding: 10px 20px; font-size: 14px; font-family: 'Inter', sans-serif; font-weight: 600;
-    color: #fff; background: transparent; border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 10px; cursor: pointer; transition: all 0.3s;
-  }
-  .outline-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); }
-  
-  .progress-bar { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
-  .progress-fill { height: 100%; background: linear-gradient(90deg, #3CFFD0, #00D4AA); border-radius: 4px; transition: width 0.5s; }
-`;
+const translations = {
+  en: {
+    greeting: 'Good morning',
+    greetingAlt: 'Welcome back',
+    aiFound: 'Your AI found',
+    matchesToday: 'high-quality matches today',
+    packetsReady: 'application packets are ready',
+    menu: 'Menu',
+    dashboard: 'Dashboard',
+    matches: 'Job Matches',
+    packets: 'My Packets',
+    analytics: 'Analytics',
+    sources: 'Job Sources',
+    settings: 'Settings',
+    preferences: 'Preferences',
+    billing: 'Billing',
+    help: 'Need help?',
+    helpDesc: 'Our support team is here 24/7',
+    startChat: 'Start Chat',
+    logOut: 'Log Out',
+    stats: {
+      forwarded: 'Jobs forwarded today',
+      matched: 'Jobs matched',
+      packets: 'Packets generated',
+      applications: 'Applications sent',
+    },
+    todaysMatches: 'Today\'s Matches',
+    aiSelected: 'AI-selected based on your profile',
+    viewAll: 'View All',
+    whyMatch: 'Why you match',
+    generatePacket: 'Generate Packet',
+    save: 'Save',
+    viewJob: 'View Job',
+    filteredOut: 'Filtered Out',
+    filteredDesc: 'Jobs that didn\'t match your criteria',
+    force: 'Force',
+    forceTip: 'Force Packet lets you generate a packet anyway — great for stretch roles',
+    recentPackets: 'Recent Packets',
+    ready: 'ready',
+    pdf: 'PDF',
+    docx: 'DOCX',
+    viewAllPackets: 'View All Packets',
+    weeklyActivity: 'Weekly Activity',
+    week: 'Week',
+    month: 'Month',
+    totalForwarded: 'Total Forwarded',
+    matchRate: 'Match Rate',
+    packetsGenerated: 'Packets Generated',
+    quickActions: 'Quick Actions',
+    uploadResume: 'Upload Resume',
+    addJobBoard: 'Add Job Board',
+    editProfile: 'Edit Profile',
+    dataNotice: 'Your data is stored securely. History retained for 3 months after subscription ends.',
+    aiActive: 'AI Active',
+    hot: 'HOT',
+  },
+  fr: {
+    greeting: 'Bonjour',
+    greetingAlt: 'Bon retour',
+    aiFound: 'Votre IA a trouvé',
+    matchesToday: 'correspondances de qualité aujourd\'hui',
+    packetsReady: 'dossiers de candidature sont prêts',
+    menu: 'Menu',
+    dashboard: 'Tableau de bord',
+    matches: 'Emplois Correspondants',
+    packets: 'Mes Dossiers',
+    analytics: 'Analytiques',
+    sources: 'Sources d\'Emploi',
+    settings: 'Paramètres',
+    preferences: 'Préférences',
+    billing: 'Facturation',
+    help: 'Besoin d\'aide?',
+    helpDesc: 'Notre équipe support est là 24/7',
+    startChat: 'Démarrer Chat',
+    logOut: 'Déconnexion',
+    stats: {
+      forwarded: 'Emplois transférés aujourd\'hui',
+      matched: 'Emplois correspondants',
+      packets: 'Dossiers générés',
+      applications: 'Candidatures envoyées',
+    },
+    todaysMatches: 'Correspondances du Jour',
+    aiSelected: 'Sélectionnés par l\'IA selon votre profil',
+    viewAll: 'Voir Tout',
+    whyMatch: 'Pourquoi vous correspondez',
+    generatePacket: 'Générer Dossier',
+    save: 'Sauver',
+    viewJob: 'Voir Offre',
+    filteredOut: 'Filtrés',
+    filteredDesc: 'Emplois ne correspondant pas à vos critères',
+    force: 'Forcer',
+    forceTip: 'Forcer le dossier permet de générer quand même — idéal pour les rôles ambitieux',
+    recentPackets: 'Dossiers Récents',
+    ready: 'prêts',
+    pdf: 'PDF',
+    docx: 'DOCX',
+    viewAllPackets: 'Voir Tous les Dossiers',
+    weeklyActivity: 'Activité Hebdomadaire',
+    week: 'Semaine',
+    month: 'Mois',
+    totalForwarded: 'Total Transféré',
+    matchRate: 'Taux Correspondance',
+    packetsGenerated: 'Dossiers Générés',
+    quickActions: 'Actions Rapides',
+    uploadResume: 'Télécharger CV',
+    addJobBoard: 'Ajouter Site Emploi',
+    editProfile: 'Modifier Profil',
+    dataNotice: 'Vos données sont stockées en sécurité. Historique conservé 3 mois après fin d\'abonnement.',
+    aiActive: 'IA Active',
+    hot: 'TOP',
+  },
+};
 
-const PLAN_QUOTAS = { trial: 3, free: 3, basic: 5, pro: 15, vip: 30, enterprise: 100 };
-const PLAN_COLORS = { trial: '#3CFFD0', free: '#9CA3AF', basic: '#60A5FA', pro: '#A78BFA', vip: '#F472B6', enterprise: '#FBBF24' };
+// Mock data
+const mockMatches = [
+  { id: 1, title: 'Senior Product Manager', company: 'Stripe', location: 'San Francisco, CA (Remote)', salary: '$180k - $220k', score: 94, hot: true, logo: '💳' },
+  { id: 2, title: 'Product Manager, Growth', company: 'Notion', location: 'New York, NY (Hybrid)', salary: '$160k - $200k', score: 91, hot: true, logo: '📝' },
+  { id: 3, title: 'Senior PM, Platform', company: 'Figma', location: 'San Francisco, CA', salary: '$175k - $215k', score: 88, hot: false, logo: '🎨' },
+];
 
-export default function Dashboard() {
+const mockPackets = [
+  { id: 1, title: 'Senior Product Manager', company: 'Stripe', time: 'Today, 10:32 AM' },
+  { id: 2, title: 'Product Manager, Growth', company: 'Notion', time: 'Today, 8:15 AM' },
+  { id: 3, title: 'PM, Payments', company: 'Square', time: 'Yesterday, 4:22 PM' },
+];
+
+const weeklyData = [
+  { day: 'Mon', value: 42 }, { day: 'Tue', value: 38 }, { day: 'Wed', value: 51 },
+  { day: 'Thu', value: 45 }, { day: 'Fri', value: 47 }, { day: 'Sat', value: 23 }, { day: 'Sun', value: 18 },
+];
+
+const Dashboard = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const [lang, setLang] = useState('en');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [user, setUser] = useState({ name: 'User', email: '', plan: 'Pro' });
+  const t = translations[lang];
 
   useEffect(() => {
+    const savedLang = localStorage.getItem('jc_lang');
+    if (savedLang) setLang(savedLang);
+
     const email = localStorage.getItem('jc_user_email');
-    if (!email) { navigate('/login'); return; }
+    if (!email) {
+      navigate('/login');
+      return;
+    }
 
     // Fetch user data
-    const fetchUser = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/users?email=${encodeURIComponent(email)}`);
-        if (res.ok) {
-          const users = await res.json();
-          const userData = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-          if (userData) {
-            setUser({ ...userData, quota_total: PLAN_QUOTAS[userData.plan] || 3 });
-          } else {
-            // User not in DB yet, show basic info
-            setUser({ email, full_name: email.split('@')[0], plan: 'trial', quota_remaining: 3, quota_total: 3 });
-          }
+    fetch(`${API_BASE}/users?email=${encodeURIComponent(email)}`)
+      .then(res => res.json())
+      .then(users => {
+        const userData = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (userData) {
+          setUser({
+            name: userData.full_name || email.split('@')[0],
+            email: userData.email,
+            plan: userData.plan || 'trial',
+          });
         } else {
-          setUser({ email, full_name: email.split('@')[0], plan: 'trial', quota_remaining: 3, quota_total: 3 });
+          setUser({ name: email.split('@')[0], email, plan: 'trial' });
         }
-      } catch (err) {
-        console.error(err);
-        setUser({ email, full_name: email.split('@')[0], plan: 'trial', quota_remaining: 3, quota_total: 3 });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
+      })
+      .catch(() => {
+        setUser({ name: email.split('@')[0], email, plan: 'trial' });
+      });
   }, [navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('jc_user_email');
-    navigate('/login');
+    navigate('/services');
   };
 
-  if (loading) {
-    return (
-      <>
-        <style>{CSS}</style>
-        <div style={{ minHeight: '100vh', background: '#08080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif" }}>
-          <div style={{ textAlign: 'center' }}>
-            <svg width="40" height="40" viewBox="0 0 24 24" style={{ animation: 'spin 0.8s linear infinite' }}>
-              <circle cx="12" cy="12" r="10" stroke="#3CFFD0" strokeWidth="3" fill="none" opacity="0.2" />
-              <path fill="#3CFFD0" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
-            </svg>
-            <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: 16 }}>Loading dashboard...</p>
+  const colors = {
+    void: '#06060A',
+    night: '#0A0A10',
+    charcoal: '#101014',
+    mint: '#3CFFD0',
+    mintGlow: 'rgba(60, 255, 208, 0.5)',
+    mintSoft: 'rgba(60, 255, 208, 0.12)',
+    mintBorder: 'rgba(60, 255, 208, 0.25)',
+    lavender: '#A78BFA',
+    lavenderSoft: 'rgba(167, 139, 250, 0.12)',
+    coral: '#FF6B6B',
+    gold: '#FFD93D',
+    goldSoft: 'rgba(255, 217, 61, 0.12)',
+    text100: '#FFFFFF',
+    text60: 'rgba(255, 255, 255, 0.6)',
+    text40: 'rgba(255, 255, 255, 0.4)',
+    text10: 'rgba(255, 255, 255, 0.06)',
+  };
+
+  const stats = { forwarded: 47, matched: 12, packets: 8, applications: 5 };
+
+  // Sidebar component
+  const Sidebar = ({ mobile = false }) => (
+    <div style={{
+      width: mobile ? '100%' : '280px',
+      minWidth: mobile ? 'auto' : '280px',
+      background: colors.night,
+      borderRight: mobile ? 'none' : `1px solid ${colors.text10}`,
+      padding: '28px 0',
+      display: 'flex',
+      flexDirection: 'column',
+      height: mobile ? 'auto' : '100vh',
+      position: mobile ? 'relative' : 'sticky',
+      top: 0,
+    }}>
+      {/* Logo */}
+      <div style={{ padding: '0 24px', marginBottom: 36 }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none' }}>
+          <div style={{
+            width: 44, height: 44, background: colors.mint, borderRadius: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: 20, color: colors.void,
+            boxShadow: `0 0 30px ${colors.mintGlow}`,
+          }}>Z</div>
+          <span style={{ fontSize: 20, fontWeight: 600, color: colors.text100 }}>JobConcierge</span>
+        </Link>
+      </div>
+
+      {/* User Card */}
+      <div style={{ padding: '0 16px', marginBottom: 28 }}>
+        <div style={{
+          padding: 18, background: `linear-gradient(135deg, ${colors.mintSoft}, ${colors.lavenderSoft})`,
+          border: `1px solid ${colors.mintBorder}`, borderRadius: 16,
+          display: 'flex', alignItems: 'center', gap: 14,
+        }}>
+          <div style={{
+            width: 46, height: 46, background: `linear-gradient(135deg, ${colors.mint}, ${colors.lavender})`,
+            borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18, fontWeight: 600, color: colors.void,
+          }}>{user.name.charAt(0).toUpperCase()}</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: colors.text100, marginBottom: 2 }}>{user.name}</div>
+            <div style={{
+              display: 'inline-flex', padding: '3px 10px', background: colors.mint, borderRadius: 6,
+              fontSize: 11, fontWeight: 700, color: colors.void, textTransform: 'uppercase',
+            }}>{user.plan}</div>
           </div>
         </div>
-      </>
-    );
-  }
+      </div>
 
-  const planColor = PLAN_COLORS[user?.plan] || '#3CFFD0';
-  const quotaPercent = ((user?.quota_remaining ?? 0) / (user?.quota_total || 3)) * 100;
+      {/* Nav */}
+      <div style={{ flex: 1, padding: '0 12px' }}>
+        <div style={{ padding: '0 12px', marginBottom: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: colors.text40, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            {t.menu}
+          </span>
+        </div>
+        {[
+          { id: 'dashboard', icon: '◐', label: t.dashboard, count: null },
+          { id: 'matches', icon: '◎', label: t.matches, count: 12 },
+          { id: 'packets', icon: '❐', label: t.packets, count: 8 },
+          { id: 'analytics', icon: '◧', label: t.analytics, count: null },
+          { id: 'sources', icon: '⬡', label: t.sources, count: 5 },
+        ].map((item) => (
+          <div
+            key={item.id}
+            onClick={() => { setActiveTab(item.id); if (mobile) setSidebarOpen(false); }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 16px', background: activeTab === item.id ? colors.mintSoft : 'transparent',
+              border: activeTab === item.id ? `1px solid ${colors.mintBorder}` : '1px solid transparent',
+              borderRadius: 12, marginBottom: 4, cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 18, color: activeTab === item.id ? colors.mint : colors.text60 }}>{item.icon}</span>
+              <span style={{ fontSize: 14, fontWeight: activeTab === item.id ? 600 : 500, color: activeTab === item.id ? colors.mint : colors.text60 }}>
+                {item.label}
+              </span>
+            </div>
+            {item.count && (
+              <span style={{
+                padding: '2px 8px', background: activeTab === item.id ? colors.mint : colors.text10,
+                borderRadius: 6, fontSize: 12, fontWeight: 600, color: activeTab === item.id ? colors.void : colors.text40,
+              }}>{item.count}</span>
+            )}
+          </div>
+        ))}
+
+        <div style={{ height: 1, background: colors.text10, margin: '20px 12px' }} />
+
+        <div style={{ padding: '0 12px', marginBottom: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: colors.text40, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            {t.settings}
+          </span>
+        </div>
+        {[
+          { id: 'preferences', icon: '⚙', label: t.preferences },
+          { id: 'billing', icon: '◈', label: t.billing },
+        ].map((item) => (
+          <div
+            key={item.id}
+            onClick={() => { setActiveTab(item.id); if (mobile) setSidebarOpen(false); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: 18, opacity: 0.5 }}>{item.icon}</span>
+            <span style={{ fontSize: 14, fontWeight: 500, color: colors.text60 }}>{item.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Help & Logout */}
+      <div style={{ padding: '0 16px' }}>
+        <div style={{ padding: 20, background: colors.charcoal, border: `1px solid ${colors.text10}`, borderRadius: 16, marginBottom: 12 }}>
+          <div style={{ fontSize: 24, marginBottom: 12 }}>💬</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: colors.text100, marginBottom: 4 }}>{t.help}</div>
+          <p style={{ fontSize: 12, color: colors.text40, marginBottom: 14 }}>{t.helpDesc}</p>
+          <button style={{
+            width: '100%', padding: '11px 16px', background: 'rgba(255,255,255,0.05)',
+            border: `1px solid ${colors.text10}`, borderRadius: 10, fontSize: 13, fontWeight: 500, color: colors.text60, cursor: 'pointer',
+          }}>{t.startChat}</button>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          style={{
+            width: '100%', padding: '12px 16px', background: 'transparent',
+            border: `1px solid ${colors.text10}`, borderRadius: 10, fontSize: 13, fontWeight: 500, color: colors.text40,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          <span>↪</span> {t.logOut}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <>
-      <style>{CSS}</style>
-      <div style={{ minHeight: '100vh', background: '#08080f', fontFamily: "'Inter', sans-serif", position: 'relative' }}>
-        {/* Background */}
-        <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(60,255,208,0.06) 0%, transparent 70%)' }} />
-        <div style={{ position: 'absolute', bottom: '-10%', left: '-10%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%)' }} />
+    <div style={{
+      minHeight: '100vh',
+      background: colors.void,
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      color: colors.text60,
+    }}>
+      {/* Mobile Header */}
+      <div style={{
+        display: 'none',
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
+        padding: '16px 20px', background: colors.night, borderBottom: `1px solid ${colors.text10}`,
+        alignItems: 'center', justifyContent: 'space-between',
+      }} className="mobile-header">
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+          <div style={{
+            width: 36, height: 36, background: colors.mint, borderRadius: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, color: colors.void,
+          }}>Z</div>
+          <span style={{ fontSize: 16, fontWeight: 600, color: colors.text100 }}>JobConcierge</span>
+        </Link>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8 }}
+        >
+          <div style={{ width: 24, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ height: 2, background: '#fff', borderRadius: 2, transform: sidebarOpen ? 'rotate(45deg) translate(5px, 5px)' : 'none', transition: 'all 0.3s' }} />
+            <span style={{ height: 2, background: '#fff', borderRadius: 2, opacity: sidebarOpen ? 0 : 1, transition: 'all 0.3s' }} />
+            <span style={{ height: 2, background: '#fff', borderRadius: 2, transform: sidebarOpen ? 'rotate(-45deg) translate(5px, -5px)' : 'none', transition: 'all 0.3s' }} />
+          </div>
+        </button>
+      </div>
 
-        {/* Header */}
-        <header style={{ padding: '20px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'relative', zIndex: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, #3CFFD0, #00D4AA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 18, fontWeight: 800, color: '#0a0a0f' }}>Z</span>
-            </div>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>Job Concierge</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>{user?.email}</span>
-            <button onClick={handleLogout} className="outline-btn">Sign Out</button>
-          </div>
-        </header>
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div style={{
+          display: 'none',
+          position: 'fixed', top: '68px', left: 0, right: 0, bottom: 0, zIndex: 999,
+          background: colors.night, overflowY: 'auto',
+        }} className="mobile-sidebar">
+          <Sidebar mobile />
+        </div>
+      )}
+
+      {/* Layout */}
+      <div style={{ display: 'flex' }} className="dashboard-layout">
+        {/* Desktop Sidebar */}
+        <div className="desktop-sidebar">
+          <Sidebar />
+        </div>
 
         {/* Main Content */}
-        <main style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 24px', position: 'relative', zIndex: 1 }}>
-          {/* Welcome */}
-          <div className="fade-up" style={{ marginBottom: 40 }}>
-            <h1 style={{ margin: '0 0 8px', fontSize: 32, fontWeight: 700, color: '#fff' }}>
-              Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
-            </h1>
-            <p style={{ margin: 0, color: 'rgba(255,255,255,0.5)', fontSize: 16 }}>
-              Here's your job application automation overview
-            </p>
+        <main style={{
+          flex: 1, padding: '36px 24px', overflowY: 'auto',
+          background: `radial-gradient(ellipse at top right, rgba(60, 255, 208, 0.03) 0%, transparent 50%), ${colors.void}`,
+        }} className="main-content">
+          {/* Welcome Banner */}
+          <div style={{
+            padding: '24px', background: `linear-gradient(135deg, ${colors.mintSoft}, ${colors.lavenderSoft})`,
+            border: `1px solid ${colors.mintBorder}`, borderRadius: 20, marginBottom: 24,
+            display: 'flex', flexDirection: 'column', gap: 16,
+          }} className="welcome-banner">
+            <div>
+              <h1 style={{ fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 600, color: colors.text100, marginBottom: 10 }}>
+                {t.greeting}, {user.name.split(' ')[0]} 👋
+              </h1>
+              <p style={{ fontSize: 15, color: colors.text60, lineHeight: 1.6 }}>
+                {t.aiFound} <strong style={{ color: colors.mint }}>{stats.matched} {t.matchesToday}</strong>.<br />
+                {stats.packets} {t.packetsReady}.
+              </p>
+            </div>
+            <div style={{
+              padding: '12px 20px', background: colors.mint, borderRadius: 10,
+              display: 'inline-flex', alignItems: 'center', gap: 10, alignSelf: 'flex-start',
+              boxShadow: `0 0 30px ${colors.mintGlow}`,
+            }}>
+              <div style={{ width: 10, height: 10, background: colors.void, borderRadius: '50%' }} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: colors.void }}>{t.aiActive}</span>
+            </div>
           </div>
 
           {/* Stats Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 32 }}>
-            {/* Plan Card */}
-            <div className="stat-card fade-up-1">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Current Plan</span>
-                <div style={{ padding: '4px 12px', borderRadius: 20, background: `${planColor}20`, border: `1px solid ${planColor}40` }}>
-                  <span style={{ color: planColor, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{user?.plan || 'Trial'}</span>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 12, marginBottom: 24,
+          }}>
+            {[
+              { icon: '📥', value: stats.forwarded, label: t.stats.forwarded, accent: true },
+              { icon: '🎯', value: stats.matched, label: t.stats.matched },
+              { icon: '📦', value: stats.packets, label: t.stats.packets },
+              { icon: '📤', value: stats.applications, label: t.stats.applications },
+            ].map((stat, i) => (
+              <div key={i} style={{
+                padding: 20, background: colors.charcoal, border: `1px solid ${colors.text10}`, borderRadius: 16,
+              }}>
+                <div style={{
+                  width: 40, height: 40, background: stat.accent ? colors.mintSoft : colors.text10,
+                  borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 18, marginBottom: 12,
+                }}>{stat.icon}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: stat.accent ? colors.mint : colors.text100, marginBottom: 4 }}>
+                  {stat.value}
                 </div>
+                <div style={{ fontSize: 12, color: colors.text40 }}>{stat.label}</div>
               </div>
-              <p style={{ margin: '0 0 16px', fontSize: 28, fontWeight: 700, color: '#fff' }}>{user?.quota_total || 3} jobs/day</p>
-              <button className="premium-btn" style={{ width: '100%' }} onClick={() => navigate('/get-started')}>Upgrade Plan</button>
-            </div>
-
-            {/* Quota Card */}
-            <div className="stat-card fade-up-2">
-              <div style={{ marginBottom: 16 }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Daily Quota</span>
-              </div>
-              <p style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 700, color: '#fff' }}>
-                {user?.quota_remaining ?? 0} <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.4)' }}>/ {user?.quota_total || 3}</span>
-              </p>
-              <div className="progress-bar" style={{ marginBottom: 12 }}>
-                <div className="progress-fill" style={{ width: `${quotaPercent}%` }} />
-              </div>
-              <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Jobs remaining • Resets daily</p>
-            </div>
-
-            {/* Status Card */}
-            <div className="stat-card fade-up-3">
-              <div style={{ marginBottom: 16 }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account Status</span>
-              </div>
-              <p style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 700, color: '#3CFFD0' }}>Active ✓</p>
-              <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Your account is in good standing</p>
-            </div>
+            ))}
           </div>
 
-          {/* Quick Start Guide */}
-          <div className="glass-card fade-up-3">
-            <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700, color: '#fff' }}>🚀 Quick Start Guide</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 24 }}>
-              {[
-                { num: 1, title: 'Forward Job Alerts', desc: 'Forward job alert emails from LinkedIn, Indeed, or any job board to:', highlight: 'admin@zjobconcierge.com' },
-                { num: 2, title: 'We Process Daily', desc: 'Our AI analyzes jobs at 6 AM CT and creates personalized application packets.' },
-                { num: 3, title: 'Check Your Email', desc: 'Receive tailored resumes, cover letters, and interview prep for each matched job.' },
-              ].map((step, i) => (
-                <div key={i} style={{ display: 'flex', gap: 16 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: 'rgba(60,255,208,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3CFFD0', fontSize: 14, fontWeight: 700 }}>
-                    {step.num}
+          {/* Today's Matches */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.text100, marginBottom: 4 }}>{t.todaysMatches}</h2>
+                <p style={{ fontSize: 13, color: colors.text40 }}>{t.aiSelected}</p>
+              </div>
+              <button style={{
+                padding: '10px 18px', background: colors.text10, border: 'none', borderRadius: 10,
+                fontSize: 13, fontWeight: 500, color: colors.text60, cursor: 'pointer',
+              }}>{t.viewAll} →</button>
+            </div>
+
+            {mockMatches.map((job) => (
+              <div key={job.id} style={{
+                padding: 20, background: colors.charcoal, border: `1px solid ${colors.text10}`,
+                borderRadius: 16, marginBottom: 12,
+              }}>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  <div style={{
+                    width: 50, height: 50, background: colors.text10, borderRadius: 12,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0,
+                  }}>{job.logo}</div>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+                      <h3 style={{ fontSize: 16, fontWeight: 600, color: colors.text100 }}>{job.title}</h3>
+                      {job.hot && (
+                        <span style={{
+                          padding: '3px 8px', background: 'rgba(255,107,107,0.12)', borderRadius: 6,
+                          fontSize: 10, fontWeight: 700, color: colors.coral, textTransform: 'uppercase',
+                        }}>{t.hot}</span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 13, color: colors.text40, marginBottom: 8 }}>{job.company} • {job.location}</p>
+                    <div style={{ display: 'flex', gap: 16, fontSize: 13, color: colors.text60, marginBottom: 12 }}>
+                      <span>💰 {job.salary}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button style={{
+                        padding: '10px 20px', background: colors.mint, border: 'none', borderRadius: 8,
+                        fontSize: 13, fontWeight: 600, color: colors.void, cursor: 'pointer',
+                      }}>{t.generatePacket} ⚡</button>
+                      <button style={{
+                        padding: '10px 16px', background: 'transparent', border: `1px solid ${colors.text10}`,
+                        borderRadius: 8, fontSize: 13, fontWeight: 500, color: colors.text60, cursor: 'pointer',
+                      }}>{t.save}</button>
+                    </div>
                   </div>
-                  <div>
-                    <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600, color: '#fff' }}>{step.title}</h3>
-                    <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>{step.desc}</p>
-                    {step.highlight && (
-                      <p style={{ margin: '8px 0 0', display: 'inline-block', padding: '8px 12px', borderRadius: 8, background: 'rgba(60,255,208,0.1)', color: '#3CFFD0', fontSize: 14, fontFamily: 'monospace' }}>
-                        {step.highlight}
-                      </p>
-                    )}
+                  <div style={{
+                    padding: '10px 14px', background: job.score >= 90 ? colors.mintSoft : colors.text10,
+                    border: job.score >= 90 ? `1px solid ${colors.mintBorder}` : 'none',
+                    borderRadius: 12, textAlign: 'center', alignSelf: 'flex-start',
+                  }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: job.score >= 90 ? colors.mint : colors.text100 }}>
+                      {job.score}
+                    </div>
+                    <div style={{ fontSize: 10, color: colors.text40, textTransform: 'uppercase' }}>Match</div>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
 
-          {/* Help */}
-          <div style={{ marginTop: 32, textAlign: 'center' }}>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
-              Need help? Contact us at <a href="mailto:admin@zjobconcierge.com" style={{ color: '#3CFFD0', textDecoration: 'none' }}>admin@zjobconcierge.com</a>
-            </p>
+          {/* Recent Packets */}
+          <div style={{
+            padding: 24, background: colors.charcoal, border: `1px solid ${colors.text10}`, borderRadius: 20, marginBottom: 24,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.text100 }}>{t.recentPackets}</h2>
+              <span style={{
+                padding: '4px 12px', background: colors.lavenderSoft, borderRadius: 8,
+                fontSize: 12, fontWeight: 600, color: colors.lavender,
+              }}>{mockPackets.length} {t.ready}</span>
+            </div>
+
+            {mockPackets.map((packet, i) => (
+              <div key={packet.id} style={{
+                display: 'flex', alignItems: 'center', padding: '14px 0',
+                borderBottom: i < mockPackets.length - 1 ? `1px solid ${colors.text10}` : 'none',
+                flexWrap: 'wrap', gap: 12,
+              }}>
+                <div style={{
+                  width: 42, height: 42, background: `linear-gradient(135deg, ${colors.lavenderSoft}, ${colors.mintSoft})`,
+                  borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                }}>📦</div>
+                <div style={{ flex: 1, minWidth: '150px' }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: colors.text100, marginBottom: 2 }}>{packet.title}</div>
+                  <div style={{ fontSize: 12, color: colors.text40 }}>{packet.company} • {packet.time}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button style={{
+                    padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: 'none',
+                    borderRadius: 8, fontSize: 12, fontWeight: 500, color: colors.text60, cursor: 'pointer',
+                  }}>{t.pdf}</button>
+                  <button style={{
+                    padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: 'none',
+                    borderRadius: 8, fontSize: 12, fontWeight: 500, color: colors.text60, cursor: 'pointer',
+                  }}>{t.docx}</button>
+                </div>
+              </div>
+            ))}
+
+            <button style={{
+              width: '100%', padding: '14px', marginTop: 16, background: 'transparent',
+              border: `1px solid ${colors.text10}`, borderRadius: 12, fontSize: 13, fontWeight: 500,
+              color: colors.text60, cursor: 'pointer',
+            }}>{t.viewAllPackets} →</button>
+          </div>
+
+          {/* Data Notice */}
+          <div style={{
+            padding: 16, background: colors.lavenderSoft, border: `1px solid rgba(167, 139, 250, 0.2)`,
+            borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <span style={{ fontSize: 18 }}>💾</span>
+            <p style={{ fontSize: 13, color: colors.text60 }}>{t.dataNotice}</p>
           </div>
         </main>
       </div>
-    </>
+
+      {/* Responsive Styles */}
+      <style>{`
+        @media (max-width: 768px) {
+          .mobile-header { display: flex !important; }
+          .mobile-sidebar { display: block !important; }
+          .desktop-sidebar { display: none !important; }
+          .main-content { padding-top: 100px !important; }
+          .welcome-banner { flex-direction: column !important; }
+        }
+        @media (min-width: 769px) {
+          .mobile-header { display: none !important; }
+          .mobile-sidebar { display: none !important; }
+        }
+      `}</style>
+    </div>
   );
-}
+};
+
+export default Dashboard;
